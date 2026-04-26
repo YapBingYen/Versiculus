@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display, Lora } from "next/font/google";
+import { ClientProviders } from "../components/ClientProviders";
 import "./globals.css";
 
 const inter = Inter({ 
@@ -35,7 +36,9 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${playfair.variable} ${lora.variable} font-inter antialiased bg-[#121213] text-white`}
       >
-        {children}
+        <ClientProviders>
+          {children}
+        </ClientProviders>
       </body>
     </html>
   );

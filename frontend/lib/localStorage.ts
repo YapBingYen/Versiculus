@@ -15,18 +15,16 @@ export function loadGameState(dateKey: string): GameState | null {
   if (typeof window === 'undefined') return null; // Handle SSR safely
   
   try {
-    const item = localStorage.getItem(GAME_STATE_KEY);
+    const item = localStorage.getItem(`${GAME_STATE_KEY}_${dateKey}`);
     if (!item) return null;
     
     const parsed: PersistedData = JSON.parse(item);
     
-    // Only return state if it belongs to today's puzzle
+    // Only return state if it belongs to today's puzzle/translation
     if (parsed.dateKey === dateKey) {
       return parsed.state;
     }
     
-    // If it's a new day, clear out the old state
-    localStorage.removeItem(GAME_STATE_KEY);
     return null;
   } catch (error) {
     console.error('Failed to load game state from localStorage', error);
@@ -46,7 +44,7 @@ export function saveGameState(dateKey: string, state: GameState): void {
       state
     };
     
-    localStorage.setItem(GAME_STATE_KEY, JSON.stringify(dataToSave));
+    localStorage.setItem(`${GAME_STATE_KEY}_${dateKey}`, JSON.stringify(dataToSave));
   } catch (error) {
     console.error('Failed to save game state to localStorage', error);
   }

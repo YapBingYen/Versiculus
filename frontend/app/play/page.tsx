@@ -5,10 +5,15 @@ import { Header } from '../../components/layout/Header';
 import { VerseHeader } from '../../components/game/VerseHeader';
 import { GameGrid } from '../../components/game/GameGrid';
 import { WordInput } from '../../components/input/WordInput';
+import { Keyboard } from '../../components/input/Keyboard';
 import { HowToPlayModal } from '../../components/modals/HowToPlayModal';
 import { StatsModal } from '../../components/modals/StatsModal';
+import { AuthModal } from '../../components/modals/AuthModal';
+import { LeaderboardModal } from '../../components/modals/LeaderboardModal';
+import { SettingsModal } from '../../components/modals/SettingsModal';
 import { Toast } from '../../components/ui/Toast';
 import { useGame } from '../../hooks/useGame';
+import { useAuth } from '../../hooks/useAuth';
 import { DailyVerse } from '../../types/game';
 import { generateShareText } from '../../lib/shareGrid';
 
@@ -24,10 +29,15 @@ const MOCK_VERSE: DailyVerse = {
 export default function PlayPage() {
   const [dailyVerse, setDailyVerse] = useState<DailyVerse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // V2 Settings State
+  const [hardMode, setHardMode] = useState(false);
+  const [translation, setTranslation] = useState('NIV');
 
   // Fetch the daily verse from the backend on mount
   useEffect(() => {
-    fetch('http://localhost:5001/api/daily')
+    setIsLoading(true);
+    fetch(`http://localhost:5001/api/daily?translation=${translation}&difficulty=${hardMode ? 3 : 1}`)
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch daily verse');
         return res.json();
@@ -41,7 +51,7 @@ export default function PlayPage() {
         setDailyVerse(MOCK_VERSE); // Fallback to mock verse for development/demo
         setIsLoading(false);
       });
-  }, []);
+  }, [translation, hardMode]);
 
   if (isLoading || !dailyVerse) {
     return (
@@ -51,10 +61,10 @@ export default function PlayPage() {
     );
   }
 
-  return <GameCore verse={dailyVerse} />;
+  return <GameCore verse={dailyVerse} hardMode={hardMode} setHardMode={setHardMode} translation={translation} setTranslation={setTranslation} />;
 }
 
-function GameCore({ verse }: { verse: DailyVerse }) {
+function GameCore({ verse, hardMode, setHardMode, translation, setTranslation }: { verse: DailyVerse, hardMode: boolean, setHardMode: (v: boolean) => void, translation: string, setTranslation: (v: string) => void }) {
   const {
     gameState,
     submitGuess,
@@ -64,14 +74,32 @@ function GameCore({ verse }: { verse: DailyVerse }) {
     blankCount,
     maxAttempts,
     isLoaded,
-    resetGame
+    resetGame,
+    keyStatuses,
+    requestHint
   } = useGame(verse);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isStatsOpen, setIsStatsOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const { user, login, logout } = useAuth();
+
+  const handleLogin = (newUser: any, token: string) => {
+    login(newUser, token);
+    showToast(`Welcome, ${newUser.username}!`);
+  };
+
+  const handleLogout = () => {
+    logout();
+    showToast('Logged out successfully.');
+  };
 
   const isReadyToSubmit = gameState.currentGuess.every(word => word.trim().length > 0);
+  const isAnyModalOpen = isHelpOpen || isStatsOpen || isAuthOpen || isLeaderboardOpen || isSettingsOpen;
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -98,7 +126,15 @@ function GameCore({ verse }: { verse: DailyVerse }) {
 
   return (
     <main className="min-h-screen bg-[#121213] text-white flex flex-col">
-      <Header onOpenHelp={() => setIsHelpOpen(true)} onOpenStats={() => setIsStatsOpen(true)} />
+      <Header 
+        onOpenHelp={() => setIsHelpOpen(true)} 
+        onOpenStats={() => setIsStatsOpen(true)}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        user={user}
+        onLogout={handleLogout}
+      />
       
       <div className={`flex-1 flex flex-col overflow-y-auto pb-8 transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
         <VerseHeader verse={verse} />
@@ -115,17 +151,35 @@ function GameCore({ verse }: { verse: DailyVerse }) {
         />
 
         {gameState.status === 'playing' ? (
-          <WordInput
+          <div className="flex flex-col gap-2">
+            <WordInput
               currentWord={gameState.currentGuess[activeBlankIndex] || ''}
               activeBlankIndex={activeBlankIndex}
               blankCount={blankCount}
               onWordChange={(word) => updateCurrentGuess(activeBlankIndex, word)}
               onNextBlank={() => setActiveBlankIndex(Math.min(blankCount - 1, activeBlankIndex + 1))}
               onPrevBlank={() => setActiveBlankIndex(Math.max(0, activeBlankIndex - 1))}
+              onRequestHint={requestHint}
               onSubmit={handleRowSubmit}
               isReadyToSubmit={isReadyToSubmit}
-              disabled={gameState.status !== 'playing'}
+              disabled={gameState.status !== 'playing' || isAnyModalOpen}
             />
+            <Keyboard
+              onKeyPress={(key) => updateCurrentGuess(activeBlankIndex, (gameState.currentGuess[activeBlankIndex] || '') + key.toLowerCase())}
+              onDelete={() => {
+                const word = gameState.currentGuess[activeBlankIndex] || '';
+                if (word === '') setActiveBlankIndex(Math.max(0, activeBlankIndex - 1));
+                else updateCurrentGuess(activeBlankIndex, word.slice(0, -1));
+              }}
+              onEnter={() => {
+                if (isReadyToSubmit) handleRowSubmit();
+                else setActiveBlankIndex(Math.min(blankCount - 1, activeBlankIndex + 1));
+              }}
+              keyStatuses={keyStatuses}
+              disabled={gameState.status !== 'playing' || isAnyModalOpen}
+              isReadyToSubmit={isReadyToSubmit}
+            />
+          </div>
         ) : (
           <div className="w-full max-w-[420px] mx-auto mt-8 px-4 text-center animate-fade-in">
             <h3 className="text-2xl font-playfair text-[#C9A84C] mb-4">
@@ -155,6 +209,16 @@ function GameCore({ verse }: { verse: DailyVerse }) {
       <Toast message={toastMessage} />
       <HowToPlayModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       <StatsModal isOpen={isStatsOpen} onClose={() => setIsStatsOpen(false)} />
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLogin={handleLogin} />
+      <LeaderboardModal isOpen={isLeaderboardOpen} onClose={() => setIsLeaderboardOpen(false)} />
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+        hardMode={hardMode}
+        setHardMode={setHardMode}
+        translation={translation}
+        setTranslation={setTranslation}
+      />
     </main>
   );
 }

@@ -11,6 +11,7 @@ export interface GameState {
   currentGuess: string[]; // Words in the active, not-yet-submitted row
   status: 'playing' | 'won' | 'lost';
   currentRow: number;
+  hintsUsed: number;
 }
 
 export interface DailyVerse {
@@ -19,4 +20,5 @@ export interface DailyVerse {
   fullText: string;
   keyWords: string[]; // The actual words that are blanked out
   maskedText: string; // The verse with blanks (for UI rendering)
+  translation?: string; // The selected translation version
 }

@@ -26,8 +26,36 @@ export function isMatch(guess: string, target: string): boolean {
 }
 
 /**
+ * Calculates the Levenshtein distance between two strings.
+ * This is the minimum number of single-character edits (insertions, deletions, or substitutions)
+ * required to change one word into the other.
+ */
+function levenshteinDistance(a: string, b: string): number {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null));
+
+  for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
+  for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
+
+  for (let j = 1; j <= b.length; j++) {
+    for (let i = 1; i <= a.length; i++) {
+      const indicator = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1, // deletion
+        matrix[j - 1][i] + 1, // insertion
+        matrix[j - 1][i - 1] + indicator // substitution
+      );
+    }
+  }
+
+  return matrix[b.length][a.length];
+}
+
+/**
  * Checks if a word is similar enough to warrant a "present" (yellow) feedback.
- * e.g., "believe" vs "believes" or "faith" vs "faithful".
+ * e.g., "believe" vs "believes" or "truct" vs "trust" (typo).
  */
 export function isSimilar(word1: string, word2: string): boolean {
   if (!word1 || !word2) return false;
@@ -46,6 +74,14 @@ export function isSimilar(word1: string, word2: string): boolean {
   if (w1.length > 3 && w2.length > 3) {
     if (w1.includes(w2) && w1.length - w2.length <= 3) return true;
     if (w2.includes(w1) && w2.length - w1.length <= 3) return true;
+  }
+  
+  // Levenshtein distance for typos (e.g., "truct" vs "trust")
+  // Only allow 1 character typo for short words (4-5 chars), 2 for longer words (6+ chars)
+  const maxDistance = Math.max(w1.length, w2.length) >= 6 ? 2 : 1;
+  if (w1.length > 3 && w2.length > 3) {
+    const distance = levenshteinDistance(w1, w2);
+    if (distance <= maxDistance) return true;
   }
   
   return false;

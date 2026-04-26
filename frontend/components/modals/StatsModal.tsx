@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useStats } from '../../hooks/useStats';
 
 interface StatsModalProps {
   isOpen: boolean;
@@ -6,18 +7,21 @@ interface StatsModalProps {
 }
 
 export function StatsModal({ isOpen, onClose }: StatsModalProps) {
+  const { stats, fetchStats, isLoading } = useStats();
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchStats();
+    }
+  }, [isOpen, fetchStats]);
+
   if (!isOpen) return null;
 
-  // Mock Stats for V1 UI implementation
-  const stats = {
-    played: 42,
-    winRate: 71,
-    currentStreak: 5,
-    maxStreak: 12
-  };
-
-  const distribution = [0, 2, 5, 12, 8, 3];
-  const maxDistribution = Math.max(...distribution);
+  const winRate = stats.games_played > 0 ? Math.round((stats.games_won / stats.games_played) * 100) : 0;
+  
+  // Convert guess distribution to array for mapping (1 to 6 attempts)
+  const distribution = Array.from({ length: 6 }, (_, i) => stats.guess_distribution[i + 1] || 0);
+  const maxDistribution = Math.max(...distribution, 1); // prevent division by zero
 
   return (
     <div 
@@ -38,19 +42,19 @@ export function StatsModal({ isOpen, onClose }: StatsModalProps) {
         {/* Top Stats Row */}
         <div className="flex justify-between text-center mb-8 px-2">
           <div className="flex flex-col items-center">
-            <div className="text-3xl font-inter font-bold">{stats.played}</div>
+            <div className="text-3xl font-inter font-bold">{isLoading ? '-' : stats.games_played}</div>
             <div className="text-xs font-inter text-[#818384] mt-1">Played</div>
           </div>
           <div className="flex flex-col items-center">
-            <div className="text-3xl font-inter font-bold">{stats.winRate}%</div>
+            <div className="text-3xl font-inter font-bold">{isLoading ? '-' : `${winRate}%`}</div>
             <div className="text-xs font-inter text-[#818384] mt-1">Win Rate</div>
           </div>
           <div className="flex flex-col items-center">
-            <div className="text-3xl font-inter font-bold">{stats.currentStreak}</div>
+            <div className="text-3xl font-inter font-bold">{isLoading ? '-' : stats.current_streak}</div>
             <div className="text-xs font-inter text-[#818384] mt-1 text-center leading-tight">Current<br/>Streak</div>
           </div>
           <div className="flex flex-col items-center">
-            <div className="text-3xl font-inter font-bold">{stats.maxStreak}</div>
+            <div className="text-3xl font-inter font-bold">{isLoading ? '-' : stats.max_streak}</div>
             <div className="text-xs font-inter text-[#818384] mt-1 text-center leading-tight">Max<br/>Streak</div>
           </div>
         </div>

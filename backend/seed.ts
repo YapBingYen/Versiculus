@@ -4,6 +4,17 @@ async function seed() {
   console.log('Connecting to PostgreSQL to seed database...');
   
   try {
+    // Create users table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        username VARCHAR(50) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     // Create verses table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS verses (
@@ -12,9 +23,17 @@ async function seed() {
         full_text TEXT NOT NULL,
         key_words TEXT[] NOT NULL,
         difficulty SMALLINT DEFAULT 1,
+        translation VARCHAR(10) DEFAULT 'NIV',
         last_used DATE
       );
     `);
+    
+    // Add translation column if it was created previously
+    try {
+      await pool.query(`ALTER TABLE verses ADD COLUMN IF NOT EXISTS translation VARCHAR(10) DEFAULT 'NIV';`);
+    } catch (e) {
+      // Ignore if it already exists
+    }
 
     // Create daily schedule table
     await pool.query(`
