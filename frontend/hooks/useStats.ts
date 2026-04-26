@@ -36,7 +36,7 @@ export function useStats() {
 
     setIsLoading(true);
     try {
-      const res = await fetch(`http://localhost:5001/api/stats/${user.id}`, {
+      const res = await fetch(`https://versiculus.onrender.com/api/stats/${user.id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -73,7 +73,7 @@ export function useStats() {
     }
 
     try {
-      const res = await fetch(`http://localhost:5001/api/stats/${user.id}`, {
+      const res = await fetch(`https://versiculus.onrender.com/api/stats/${user.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

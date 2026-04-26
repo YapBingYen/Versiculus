@@ -19,7 +19,7 @@ export function LeaderboardModal({ isOpen, onClose }: LeaderboardModalProps) {
   useEffect(() => {
     if (!isOpen) return;
     setLoading(true);
-    fetch('http://localhost:5001/api/leaderboard')
+    fetch('https://versiculus.onrender.com/api/leaderboard')
       .then(res => res.json())
       .then(data => {
         setLeaders(Array.isArray(data) ? data : []);

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 
+import { User } from '../../hooks/useAuth';
+
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: (user: any, token: string) => void;
+  onLogin: (user: User, token: string) => void;
 }
 
 export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
@@ -25,7 +27,7 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
     const payload = isRegister ? { email, username, password } : { email, password };
 
     try {
-      const res = await fetch(`http://localhost:5001${endpoint}`, {
+      const res = await fetch(`https://versiculus.onrender.com${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -39,8 +41,8 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
 
       onLogin(data.user, data.token);
       onClose();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }

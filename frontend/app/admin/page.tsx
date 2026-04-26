@@ -47,7 +47,7 @@ export default function AdminPage() {
         scheduleDate: scheduleDate || null
       };
 
-      const res = await fetch('http://localhost:5001/api/admin/verses', {
+      const res = await fetch('https://versiculus.onrender.com/api/admin/verses', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -65,8 +65,8 @@ export default function AdminPage() {
       setFullText('');
       setKeyWords('');
       setScheduleDate('');
-    } catch (err: any) {
-      showToast(err.message);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'An error occurred');
     }
   };
 
@@ -76,7 +76,7 @@ export default function AdminPage() {
 
     setIsNotifying(true);
     try {
-      const res = await fetch('http://localhost:5001/api/admin/notify-all', {
+      const res = await fetch('https://versiculus.onrender.com/api/admin/notify-all', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -89,8 +89,8 @@ export default function AdminPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to send notifications');
       
       showToast(data.message || 'Notifications sent!');
-    } catch (err: any) {
-      showToast(err.message);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsNotifying(false);
     }

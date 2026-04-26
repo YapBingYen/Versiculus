@@ -13,7 +13,7 @@ import { LeaderboardModal } from '../../components/modals/LeaderboardModal';
 import { SettingsModal } from '../../components/modals/SettingsModal';
 import { Toast } from '../../components/ui/Toast';
 import { useGame } from '../../hooks/useGame';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth, User } from '../../hooks/useAuth';
 import { DailyVerse } from '../../types/game';
 import { generateShareText } from '../../lib/shareGrid';
 
@@ -37,7 +37,7 @@ export default function PlayPage() {
   // Fetch the daily verse from the backend on mount
   useEffect(() => {
     setIsLoading(true);
-    fetch(`http://localhost:5001/api/daily?translation=${translation}&difficulty=${hardMode ? 3 : 1}`)
+    fetch(`https://versiculus.onrender.com/api/daily?translation=${translation}&difficulty=${hardMode ? 3 : 1}`)
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch daily verse');
         return res.json();
@@ -56,7 +56,7 @@ export default function PlayPage() {
   if (isLoading || !dailyVerse) {
     return (
       <main className="min-h-screen bg-[#121213] text-white flex flex-col items-center justify-center">
-        <div className="animate-pulse text-[#C9A84C] font-playfair text-2xl">Loading today's verse...</div>
+        <div className="animate-pulse text-[#C9A84C] font-playfair text-2xl">Loading today&apos;s verse...</div>
       </main>
     );
   }
@@ -88,7 +88,7 @@ function GameCore({ verse, hardMode, setHardMode, translation, setTranslation }:
 
   const { user, login, logout } = useAuth();
 
-  const handleLogin = (newUser: any, token: string) => {
+  const handleLogin = (newUser: User, token: string) => {
     login(newUser, token);
     showToast(`Welcome, ${newUser.username}!`);
   };

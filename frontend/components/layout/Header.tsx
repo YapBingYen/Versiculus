@@ -1,13 +1,15 @@
 import React from 'react';
 import Link from 'next/link';
 
+import { User } from '../../hooks/useAuth';
+
 interface HeaderProps {
   onOpenHelp?: () => void;
   onOpenStats?: () => void;
   onOpenAuth?: () => void;
   onOpenLeaderboard?: () => void;
   onOpenSettings?: () => void;
-  user?: any;
+  user?: User | null;
   onLogout?: () => void;
 }
 
