@@ -37,7 +37,7 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const checkUser = await pool.query('SELECT id FROM users WHERE email = $1 OR username = $2', [email, username]);
     if (checkUser.rows.length > 0) {
-      return res.status(400).json({ error: 'Username or email already exists' });
+      return res.status(400).json({ error: 'This account already exists' });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -64,13 +64,13 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) {
-      return res.status(400).json({ error: 'Invalid credentials' });
+      return res.status(400).json({ error: "This account doesn't exist" });
     }
 
     const user = result.rows[0];
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      return res.status(400).json({ error: 'Invalid credentials' });
+      return res.status(400).json({ error: 'Invalid password' });
     }
 
     const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
@@ -346,18 +346,14 @@ app.get('/api/notifications/public-key', (req, res) => {
   res.send(process.env.PUBLIC_VAPID_KEY);
 });
 
-app.post('/api/notifications/subscribe', verifyToken, async (req: any, res) => {
+app.post('/api/notifications/subscribe', verifyToken, async (req: any, res: any) => {
   const subscription = req.body.subscription;
   const userId = req.user.id;
-
-  if (!subscription) {
-    return res.status(400).json({ error: 'Subscription is required' });
-  }
 
   try {
     await pool.query(
       'UPDATE users SET push_subscription = $1 WHERE id = $2',
-      [subscription, userId]
+      [subscription ? JSON.stringify(subscription) : null, userId]
     );
     res.status(201).json({ success: true, message: 'Subscription saved.' });
   } catch (error) {

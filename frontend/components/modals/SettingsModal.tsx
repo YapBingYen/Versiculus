@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useAuth } from '../../hooks/useAuth';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -8,10 +9,12 @@ interface SettingsModalProps {
   setHardMode: (val: boolean) => void;
   translation: string;
   setTranslation: (val: string) => void;
+  onOpenAuth?: () => void;
 }
 
-export function SettingsModal({ isOpen, onClose, hardMode, setHardMode, translation, setTranslation }: SettingsModalProps) {
-  const { isSupported, isSubscribed, permission, subscribe, isEmailSubscribed, isEmailLoading, toggleEmailSubscription } = useNotifications();
+export function SettingsModal({ isOpen, onClose, hardMode, setHardMode, translation, setTranslation, onOpenAuth }: SettingsModalProps) {
+  const { isSupported, isSubscribed, permission, subscribe, unsubscribe, isEmailSubscribed, isEmailLoading, toggleEmailSubscription } = useNotifications();
+  const { user } = useAuth();
 
   if (!isOpen) return null;
 
@@ -68,9 +71,11 @@ export function SettingsModal({ isOpen, onClose, hardMode, setHardMode, translat
                 onClick={() => {
                   if (!isSubscribed) {
                     subscribe();
+                  } else {
+                    unsubscribe();
                   }
                 }}
-                disabled={isSubscribed || permission === 'denied'}
+                disabled={permission === 'denied'}
                 className={`w-12 h-6 rounded-full transition-colors relative ${isSubscribed ? 'bg-[#538D4E]' : 'bg-[#565758]'} ${permission === 'denied' ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${isSubscribed ? 'translate-x-6' : 'translate-x-1'}`}></div>
@@ -83,9 +88,29 @@ export function SettingsModal({ isOpen, onClose, hardMode, setHardMode, translat
             <div className="flex-1 pr-4">
               <h3 className="font-bold text-lg">Email Reminders</h3>
               <p className="text-sm text-[#818384] mt-1">Receive an email when a new daily puzzle is ready.</p>
+              {!user && (
+                <p className="text-sm text-[#C9A84C] mt-2 flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                  <span>You must log in to enable email reminders.</span>
+                  {onOpenAuth && (
+                    <button onClick={() => { onClose(); onOpenAuth(); }} className="underline font-bold ml-1 hover:text-white transition-colors">
+                      Log In
+                    </button>
+                  )}
+                </p>
+              )}
             </div>
             <button 
-              onClick={toggleEmailSubscription}
+              onClick={() => {
+                if (!user) {
+                  if (onOpenAuth) {
+                    onClose();
+                    onOpenAuth();
+                  }
+                  return;
+                }
+                toggleEmailSubscription();
+              }}
               disabled={isEmailLoading}
               className={`w-12 h-6 rounded-full transition-colors relative ${isEmailSubscribed ? 'bg-[#538D4E]' : 'bg-[#565758]'} ${isEmailLoading ? 'opacity-50 cursor-wait' : ''}`}
             >

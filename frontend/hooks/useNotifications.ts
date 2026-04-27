@@ -98,6 +98,37 @@ export function useNotifications() {
     }
   };
 
+  const unsubscribe = async () => {
+    if (!isSupported) return false;
+    
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      
+      if (subscription) {
+        await subscription.unsubscribe();
+      }
+
+      // Send to backend to remove subscription
+      if (user && token) {
+        await fetch('https://versiculus.onrender.com/api/notifications/subscribe', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ subscription: null })
+        });
+      }
+
+      setIsSubscribed(false);
+      return true;
+    } catch (err) {
+      console.error('Failed to unsubscribe the user: ', err);
+      return false;
+    }
+  };
+
   const toggleEmailSubscription = async () => {
     if (!user || !token) return;
     setIsEmailLoading(true);
@@ -127,6 +158,7 @@ export function useNotifications() {
     isSubscribed,
     permission,
     subscribe,
+    unsubscribe,
     isEmailSubscribed,
     isEmailLoading,
     toggleEmailSubscription
