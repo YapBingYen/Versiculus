@@ -102,9 +102,9 @@ export function SettingsModal({ isOpen, onClose, hardMode, setHardMode, translat
                         onClose(); 
                         onOpenAuth(); 
                       }} 
-                      className="underline font-bold hover:text-white transition-colors shrink-0 ml-2 text-right"
+                      className="underline font-bold hover:text-white transition-colors shrink-0 ml-2 text-right whitespace-nowrap"
                     >
-                      Log<br/>In
+                      Log In
                     </button>
                   )}
                 </div>
