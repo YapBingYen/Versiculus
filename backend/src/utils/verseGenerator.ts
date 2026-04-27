@@ -40,7 +40,11 @@ export async function fetchVerseByReference(reference: string, translation: stri
     if (translation === 'ESV') apiTranslation = 'web';
     if (translation === 'NIV') apiTranslation = 'web';
     
-    const response = await axios.get(`https://bible-api.com/${encodeURIComponent(reference)}?translation=${apiTranslation}`);
+    const response = await axios.get(`https://bible-api.com/${encodeURIComponent(reference)}?translation=${apiTranslation}`, {
+      headers: {
+        'User-Agent': 'VersiculusApp/1.0 (hello@versiculus.app)'
+      }
+    });
     
     if (response.data && response.data.text) {
       return {
@@ -69,7 +73,11 @@ export async function fetchRandomVerse(translation: string = 'NIV'): Promise<{ r
     if (translation === 'ESV') apiTranslation = 'web'; // proxy for modern
     if (translation === 'NIV') apiTranslation = 'web'; // proxy for modern
     
-    const response = await axios.get(`https://bible-api.com/${encodeURIComponent(reference)}?translation=${apiTranslation}`);
+    const response = await axios.get(`https://bible-api.com/${encodeURIComponent(reference)}?translation=${apiTranslation}`, {
+      headers: {
+        'User-Agent': 'VersiculusApp/1.0 (hello@versiculus.app)'
+      }
+    });
     
     if (response.data && response.data.text) {
       return {

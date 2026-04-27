@@ -21,4 +21,5 @@ export interface DailyVerse {
   keyWords: string[]; // The actual words that are blanked out
   maskedText: string; // The verse with blanks (for UI rendering)
   translation?: string; // The selected translation version
+  difficulty?: number;
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNotifications } from '../../hooks/useNotifications';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -15,6 +15,7 @@ interface SettingsModalProps {
 export function SettingsModal({ isOpen, onClose, hardMode, setHardMode, translation, setTranslation, onOpenAuth }: SettingsModalProps) {
   const { isSupported, isSubscribed, permission, subscribe, unsubscribe, isEmailSubscribed, isEmailLoading, toggleEmailSubscription } = useNotifications();
   const { user } = useAuth();
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   if (!isOpen) return null;
 
@@ -88,25 +89,31 @@ export function SettingsModal({ isOpen, onClose, hardMode, setHardMode, translat
             <div className="flex-1 pr-4">
               <h3 className="font-bold text-lg">Email Reminders</h3>
               <p className="text-sm text-[#818384] mt-1">Receive an email when a new daily puzzle is ready.</p>
-              {!user && (
-                <p className="text-sm text-[#C9A84C] mt-2 flex items-center gap-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                  <span>You must log in to enable email reminders.</span>
+              {showLoginPrompt && !user && (
+                <div className="mt-3 flex items-center gap-2 text-sm text-[#C9A84C] animate-fade-in">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                  <div className="flex-1">
+                    You must log in to enable email reminders.
+                  </div>
                   {onOpenAuth && (
-                    <button onClick={() => { onClose(); onOpenAuth(); }} className="underline font-bold ml-1 hover:text-white transition-colors">
-                      Log In
+                    <button 
+                      onClick={() => { 
+                        setShowLoginPrompt(false);
+                        onClose(); 
+                        onOpenAuth(); 
+                      }} 
+                      className="underline font-bold hover:text-white transition-colors shrink-0 ml-2 text-right"
+                    >
+                      Log<br/>In
                     </button>
                   )}
-                </p>
+                </div>
               )}
             </div>
             <button 
               onClick={() => {
                 if (!user) {
-                  if (onOpenAuth) {
-                    onClose();
-                    onOpenAuth();
-                  }
+                  setShowLoginPrompt(true);
                   return;
                 }
                 toggleEmailSubscription();

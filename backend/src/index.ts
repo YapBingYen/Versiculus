@@ -107,7 +107,7 @@ app.get('/api/daily', async (req, res) => {
     
     // Attempt to get the verse scheduled for today matching translation & difficulty
     let result = await pool.query(`
-      SELECT v.id, v.reference, v.full_text as "fullText", v.key_words as "keyWords"
+      SELECT v.id, v.reference, v.full_text as "fullText", v.key_words as "keyWords", v.translation, v.difficulty
       FROM daily_schedule ds
       JOIN verses v ON ds.verse_id = v.id
       WHERE ds.play_date = $1 AND v.translation = $2 AND v.difficulty = $3
@@ -128,7 +128,7 @@ app.get('/api/daily', async (req, res) => {
         
         // Does this translation exist in the verses table already?
         const transRes = await pool.query(`
-          SELECT id, reference, full_text as "fullText", key_words as "keyWords"
+          SELECT id, reference, full_text as "fullText", key_words as "keyWords", translation, difficulty
           FROM verses
           WHERE reference = $1 AND translation = $2 AND difficulty = $3
           LIMIT 1
@@ -137,20 +137,35 @@ app.get('/api/daily', async (req, res) => {
         if (transRes.rows.length > 0) {
           result = transRes;
         } else {
-          // Fetch the exact same reference from the external API in the requested translation
-          const newVerseData = await fetchVerseByReference(reference, translation as string);
-          if (newVerseData) {
-            const keyWords = selectKeyWords(newVerseData.text, difficulty === 3 ? 6 : 4);
+          // Check if we already have the text for this translation in another difficulty
+          const existingTextRes = await pool.query(`
+            SELECT full_text as "fullText"
+            FROM verses
+            WHERE reference = $1 AND translation = $2
+            LIMIT 1
+          `, [reference, translation]);
+
+          let verseTextToUse = null;
+          if (existingTextRes.rows.length > 0) {
+            verseTextToUse = existingTextRes.rows[0].fullText;
+          } else {
+            // Fetch from the external API in the requested translation
+            const newVerseData = await fetchVerseByReference(reference, translation as string);
+            if (newVerseData) verseTextToUse = newVerseData.text;
+          }
+
+          if (verseTextToUse) {
+            const keyWords = selectKeyWords(verseTextToUse, difficulty === 3 ? 6 : 4);
             const insertRes = await pool.query(`
               INSERT INTO verses (reference, full_text, key_words, difficulty, translation)
-              VALUES ($1, $2, $3, $4, $5) RETURNING id, reference, full_text as "fullText", key_words as "keyWords"
-            `, [newVerseData.reference, newVerseData.text, keyWords, difficulty, translation]);
+              VALUES ($1, $2, $3, $4, $5) RETURNING id, reference, full_text as "fullText", key_words as "keyWords", translation, difficulty
+            `, [reference, verseTextToUse, keyWords, difficulty, translation]);
             
             result = insertRes;
           } else {
             // Ultimate fallback: Just serve whatever translation is already scheduled
             result = await pool.query(`
-              SELECT v.id, v.reference, v.full_text as "fullText", v.key_words as "keyWords"
+              SELECT v.id, v.reference, v.full_text as "fullText", v.key_words as "keyWords", v.translation, v.difficulty
               FROM daily_schedule ds
               JOIN verses v ON ds.verse_id = v.id
               WHERE ds.play_date = $1
@@ -167,7 +182,7 @@ app.get('/api/daily', async (req, res) => {
 
       const verseResult = await pool.query(`
         INSERT INTO verses (reference, full_text, key_words, difficulty, translation)
-        VALUES ($1, $2, $3, $4, $5) RETURNING id, reference, full_text as "fullText", key_words as "keyWords"
+        VALUES ($1, $2, $3, $4, $5) RETURNING id, reference, full_text as "fullText", key_words as "keyWords", translation, difficulty
       `, [randomVerseData.reference, randomVerseData.text, keyWords, difficulty, translation]);
 
       const newVerse = verseResult.rows[0];
@@ -201,7 +216,9 @@ app.get('/api/daily', async (req, res) => {
       reference: verse.reference,
       fullText: verse.fullText,
       keyWords: verse.keyWords,
-      maskedText
+      maskedText,
+      translation: verse.translation,
+      difficulty: verse.difficulty
     });
     
   } catch (error) {

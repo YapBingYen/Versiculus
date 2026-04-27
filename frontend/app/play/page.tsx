@@ -23,7 +23,9 @@ const MOCK_VERSE: DailyVerse = {
   reference: "John 3:16",
   fullText: "For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.",
   keyWords: ["world", "Son", "believes", "perish"],
-  maskedText: "For God so loved the [_____], that he gave his one and only [___], that whoever [________] in him shall not [______] but have eternal life."
+  maskedText: "For God so loved the [_____], that he gave his one and only [___], that whoever [________] in him shall not [______] but have eternal life.",
+  translation: 'NIV',
+  difficulty: 1
 };
 
 export default function PlayPage() {
@@ -66,6 +68,15 @@ export default function PlayPage() {
       })
       .then(data => {
         setDailyVerse(data);
+        
+        // Sync frontend settings with what the backend actually returned
+        if (data.translation) {
+          setTranslation(data.translation);
+        }
+        if (data.difficulty !== undefined) {
+          setHardMode(data.difficulty === 3);
+        }
+        
         setIsLoading(false);
       })
       .catch(err => {
