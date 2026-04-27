@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Toast } from '../../components/ui/Toast';
+import { apiUrl } from '../../lib/api';
 
 export default function AdminPage() {
   const [reference, setReference] = useState('');
@@ -47,7 +48,7 @@ export default function AdminPage() {
         scheduleDate: scheduleDate || null
       };
 
-      const res = await fetch('https://versiculus.onrender.com/api/admin/verses', {
+      const res = await fetch(apiUrl('/api/admin/verses'), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -76,7 +77,7 @@ export default function AdminPage() {
 
     setIsNotifying(true);
     try {
-      const res = await fetch('https://versiculus.onrender.com/api/admin/notify-all', {
+      const res = await fetch(apiUrl('/api/admin/notify-all'), {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

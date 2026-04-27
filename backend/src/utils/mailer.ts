@@ -1,44 +1,59 @@
 import nodemailer from 'nodemailer';
 
-let transporter: nodemailer.Transporter;
+let transporter: nodemailer.Transporter | null = null;
+let mailerReady = false;
 
-// Initialize a real Ethereal test account if no custom SMTP is provided
 async function initTransporter() {
-  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+  const isProd = process.env.NODE_ENV === 'production';
+  const hasSmtp =
+    !!process.env.SMTP_HOST &&
+    !!process.env.SMTP_PORT &&
+    !!process.env.SMTP_USER &&
+    !!process.env.SMTP_PASS;
+
+  if (hasSmtp) {
+    const smtpPort = process.env.SMTP_PORT as string;
     transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-      port: parseInt(process.env.SMTP_PORT || '587'),
+      host: process.env.SMTP_HOST,
+      port: parseInt(smtpPort, 10),
+      secure: smtpPort === '465',
       auth: {
         user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
+        pass: process.env.SMTP_PASS,
+      },
     });
-  } else {
-    // Generate a test account on the fly for local development
+    mailerReady = true;
+    return;
+  }
+
+  if (!isProd) {
     const testAccount = await nodemailer.createTestAccount();
     transporter = nodemailer.createTransport({
       host: 'smtp.ethereal.email',
       port: 587,
-      secure: false, // true for 465, false for other ports
+      secure: false,
       auth: {
-        user: testAccount.user, // generated ethereal user
-        pass: testAccount.pass, // generated ethereal password
+        user: testAccount.user,
+        pass: testAccount.pass,
       },
     });
-    console.log('Local Development Mailer initialized with Ethereal test account.');
+    mailerReady = true;
+    return;
   }
+
+  transporter = null;
+  mailerReady = false;
 }
 
-// Call this immediately so it's ready when needed
 initTransporter();
 
 export async function sendEmailNotification(to: string, title: string, body: string) {
-  if (!transporter) {
-    console.error('Mailer not initialized yet.');
+  if (!mailerReady || !transporter) {
     return false;
   }
   
   try {
+    const appUrl = process.env.APP_PUBLIC_URL || process.env.FRONTEND_URL || '';
     const info = await transporter.sendMail({
       from: '"Versiculus App" <hello@versiculus.app>',
       to,
@@ -48,12 +63,10 @@ export async function sendEmailNotification(to: string, title: string, body: str
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; text-align: center; background-color: #121213; color: white;">
           <h1 style="color: #C9A84C; font-family: Georgia, serif;">${title}</h1>
           <p style="font-size: 16px; line-height: 1.5;">${body}</p>
-          <a href="http://localhost:3000" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #2C5F8A; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">Play Now</a>
+          ${appUrl ? `<a href="${appUrl}" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #2C5F8A; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">Play Now</a>` : ''}
         </div>
       `
     });
-    console.log('Message sent: %s', info.messageId);
-    console.log('Preview URL: %s', nodemailer.getTestMessageUrl(info));
     return true;
   } catch (error) {
     console.error('Error sending email:', error);

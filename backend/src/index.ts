@@ -23,11 +23,29 @@ if (process.env.PUBLIC_VAPID_KEY && process.env.PRIVATE_VAPID_KEY) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 5001;
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-versiculus-key';
+const isProd = process.env.NODE_ENV === 'production';
+const PORT = parseInt(process.env.PORT || '5001', 10);
+const JWT_SECRET = process.env.JWT_SECRET || (isProd ? '' : 'super-secret-versiculus-key');
+
+if (isProd && !JWT_SECRET) {
+  throw new Error('JWT_SECRET is required in production');
+}
 
 app.use(cors());
 app.use(express.json());
+
+app.get('/', (_req, res) => {
+  res.status(200).send('OK');
+});
+
+app.get('/healthz', async (_req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.status(200).json({ ok: true });
+  } catch {
+    res.status(500).json({ ok: false });
+  }
+});
 
 // ---------------------------------------------------------
 // AUTH ENDPOINTS
@@ -93,6 +111,18 @@ const verifyToken = (req: any, res: any, next: any) => {
   } catch (err) {
     res.status(400).json({ error: 'Invalid token' });
   }
+};
+
+const parsePushSubscription = (raw: any) => {
+  if (!raw) return null;
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  return raw;
 };
 
 // ---------------------------------------------------------
@@ -360,7 +390,10 @@ app.get('/api/notifications/preferences', verifyToken, async (req: any, res) => 
 });
 
 app.get('/api/notifications/public-key', (req, res) => {
-  res.send(process.env.PUBLIC_VAPID_KEY);
+  if (!process.env.PUBLIC_VAPID_KEY) {
+    return res.status(500).send('');
+  }
+  res.type('text/plain').send(process.env.PUBLIC_VAPID_KEY);
 });
 
 app.post('/api/notifications/subscribe', verifyToken, async (req: any, res: any) => {
@@ -410,7 +443,11 @@ app.post('/api/admin/notify-all', verifyToken, async (req: any, res) => {
     const pushUsers = pushResult.rows;
 
     const pushNotifications = pushUsers.map(user => {
-      return webpush.sendNotification(user.push_subscription, payload)
+      const subscription = parsePushSubscription(user.push_subscription);
+      if (!subscription) {
+        return pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [user.id]);
+      }
+      return webpush.sendNotification(subscription, payload)
         .catch(err => {
           if (err.statusCode === 404 || err.statusCode === 410) {
             console.log('Subscription has expired or is no longer valid: ', err);
@@ -497,7 +534,11 @@ cron.schedule('0 8 * * *', async () => {
     const pushResult = await pool.query('SELECT id, push_subscription FROM users WHERE push_subscription IS NOT NULL');
     const pushUsers = pushResult.rows;
     const pushNotifications = pushUsers.map(user => {
-      return webpush.sendNotification(user.push_subscription, payload)
+      const subscription = parsePushSubscription(user.push_subscription);
+      if (!subscription) {
+        return pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [user.id]);
+      }
+      return webpush.sendNotification(subscription, payload)
         .catch(err => {
           if (err.statusCode === 404 || err.statusCode === 410) {
             return pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [user.id]);

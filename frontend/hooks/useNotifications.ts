@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
+import { apiUrl } from '../lib/api';
 
 export function useNotifications() {
   const { user, token } = useAuth();
@@ -18,7 +19,7 @@ export function useNotifications() {
 
     // Fetch user preferences for email notifications
     if (user && token) {
-      fetch('https://versiculus.onrender.com/api/notifications/preferences', {
+      fetch(apiUrl('/api/notifications/preferences'), {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => res.json())
@@ -70,7 +71,7 @@ export function useNotifications() {
       const registration = await navigator.serviceWorker.ready;
       
       // Fetch VAPID public key from backend
-      const res = await fetch('https://versiculus.onrender.com/api/notifications/public-key');
+      const res = await fetch(apiUrl('/api/notifications/public-key'));
       const publicKey = await res.text();
 
       const subscription = await registration.pushManager.subscribe({
@@ -80,7 +81,7 @@ export function useNotifications() {
 
       // Send to backend
       if (user && token) {
-        await fetch('https://versiculus.onrender.com/api/notifications/subscribe', {
+        await fetch(apiUrl('/api/notifications/subscribe'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -111,7 +112,7 @@ export function useNotifications() {
 
       // Send to backend to remove subscription
       if (user && token) {
-        await fetch('https://versiculus.onrender.com/api/notifications/subscribe', {
+        await fetch(apiUrl('/api/notifications/subscribe'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -134,7 +135,7 @@ export function useNotifications() {
     setIsEmailLoading(true);
     try {
       const newStatus = !isEmailSubscribed;
-      const res = await fetch('https://versiculus.onrender.com/api/notifications/email-subscribe', {
+      const res = await fetch(apiUrl('/api/notifications/email-subscribe'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

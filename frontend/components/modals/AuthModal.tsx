@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 
 import { User } from '../../hooks/useAuth';
+import { apiUrl } from '../../lib/api';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -27,7 +28,7 @@ export function AuthModal({ isOpen, onClose, onLogin }: AuthModalProps) {
     const payload = isRegister ? { email, username, password } : { email, password };
 
     try {
-      const res = await fetch(`https://versiculus.onrender.com${endpoint}`, {
+      const res = await fetch(apiUrl(endpoint), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

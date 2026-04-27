@@ -15,6 +15,7 @@ import { Toast } from '../../components/ui/Toast';
 import { useGame } from '../../hooks/useGame';
 import { useAuth, User } from '../../hooks/useAuth';
 import { DailyVerse } from '../../types/game';
+import { apiUrl } from '../../lib/api';
 import { generateShareText } from '../../lib/shareGrid';
 
 // MOCK VERSE FOR DEVELOPMENT
@@ -61,7 +62,7 @@ export default function PlayPage() {
   useEffect(() => {
     if (!isReady) return;
     setIsLoading(true);
-    fetch(`https://versiculus.onrender.com/api/daily?translation=${translation}&difficulty=${hardMode ? 3 : 1}`)
+    fetch(apiUrl(`/api/daily?translation=${translation}&difficulty=${hardMode ? 3 : 1}`))
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch daily verse');
         return res.json();

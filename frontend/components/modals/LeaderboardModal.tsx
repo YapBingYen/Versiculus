@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiUrl } from '../../lib/api';
 
 interface LeaderboardModalProps {
   isOpen: boolean;
@@ -19,7 +20,7 @@ export function LeaderboardModal({ isOpen, onClose }: LeaderboardModalProps) {
   useEffect(() => {
     if (!isOpen) return;
     setLoading(true);
-    fetch('https://versiculus.onrender.com/api/leaderboard')
+    fetch(apiUrl('/api/leaderboard'))
       .then(res => res.json())
       .then(data => {
         setLeaders(Array.isArray(data) ? data : []);

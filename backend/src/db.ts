@@ -1,12 +1,20 @@
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
+import dns from 'dns';
 
+dns.setDefaultResultOrder('ipv4first');
 dotenv.config();
 
-// Connect to the PostgreSQL database using the DATABASE_URL environment variable.
-// Default fallback provided for local development.
+const isProd = process.env.NODE_ENV === 'production';
+const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/versiculus';
+
+if (isProd && !process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is required in production');
+}
+
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/versiculus',
+  connectionString,
+  ssl: isProd || connectionString.includes('supabase.co') ? { rejectUnauthorized: false } : undefined,
 });
 
 pool.on('error', (err) => {
