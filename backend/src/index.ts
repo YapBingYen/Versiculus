@@ -233,11 +233,10 @@ app.get('/api/daily', async (req, res) => {
     
     // Generate masked text on the backend
     let maskedText = verse.fullText;
+    const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     verse.keyWords.forEach((word: string) => {
-      // Create a blank that matches the character count exactly
       const blank = `[${'_'.repeat(word.length)}]`;
-      // Replace the exact word (case-insensitive) using word boundaries
-      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      const regex = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'i');
       maskedText = maskedText.replace(regex, blank);
     });
 
