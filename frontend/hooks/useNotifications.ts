@@ -8,8 +8,10 @@ export function useNotifications() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [isPushLoading, setIsPushLoading] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
   const [isEmailSubscribed, setIsEmailSubscribed] = useState(false);
   const [isEmailLoading, setIsEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
@@ -64,8 +66,10 @@ export function useNotifications() {
     
     try {
       if (!user || !token) {
+        setPushError('You must be logged in to enable push notifications.');
         return false;
       }
+      setPushError(null);
       setIsPushLoading(true);
       const permissionResult = await Notification.requestPermission();
       setPermission(permissionResult);
@@ -96,10 +100,16 @@ export function useNotifications() {
         body: JSON.stringify({ subscription })
       });
       if (!saveRes.ok) {
+        let msg = 'Failed to enable push notifications.';
+        try {
+          const data = await saveRes.json();
+          if (data?.error) msg = String(data.error);
+        } catch {}
         try {
           await subscription.unsubscribe();
         } catch {}
         setIsSubscribed(false);
+        setPushError(msg);
         return false;
       }
 
@@ -107,6 +117,7 @@ export function useNotifications() {
       return true;
     } catch (err) {
       console.error('Failed to subscribe the user: ', err);
+      setPushError('Push notifications could not be enabled on this device.');
       return false;
     } finally {
       setIsPushLoading(false);
@@ -118,8 +129,10 @@ export function useNotifications() {
     
     try {
       if (!user || !token) {
+        setPushError('You must be logged in to disable push notifications.');
         return false;
       }
+      setPushError(null);
       setIsPushLoading(true);
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
@@ -142,6 +155,7 @@ export function useNotifications() {
       return true;
     } catch (err) {
       console.error('Failed to unsubscribe the user: ', err);
+      setPushError('Failed to disable push notifications.');
       return false;
     } finally {
       setIsPushLoading(false);
@@ -153,6 +167,7 @@ export function useNotifications() {
     setIsEmailLoading(true);
     const newStatus = !isEmailSubscribed;
     setIsEmailSubscribed(newStatus);
+    setEmailError(null);
     try {
       const res = await fetch(apiUrl('/api/notifications/email-subscribe'), {
         method: 'POST',
@@ -164,11 +179,18 @@ export function useNotifications() {
       });
       
       if (!res.ok) {
+        let msg = 'Failed to update email reminders.';
+        try {
+          const data = await res.json();
+          if (data?.error) msg = String(data.error);
+        } catch {}
         setIsEmailSubscribed(!newStatus);
+        setEmailError(msg);
       }
     } catch (err) {
       setIsEmailSubscribed(!newStatus);
       console.error('Failed to update email preferences', err);
+      setEmailError('Failed to update email reminders.');
     } finally {
       setIsEmailLoading(false);
     }
@@ -179,10 +201,12 @@ export function useNotifications() {
     isSubscribed,
     permission,
     isPushLoading,
+    pushError,
     subscribe,
     unsubscribe,
     isEmailSubscribed,
     isEmailLoading,
+    emailError,
     toggleEmailSubscription
   };
 }

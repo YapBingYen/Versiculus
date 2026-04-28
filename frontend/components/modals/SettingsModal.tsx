@@ -13,7 +13,7 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose, hardMode, setHardMode, translation, setTranslation, onOpenAuth }: SettingsModalProps) {
-  const { isSupported, isSubscribed, permission, isPushLoading, subscribe, unsubscribe, isEmailSubscribed, isEmailLoading, toggleEmailSubscription } = useNotifications();
+  const { isSupported, isSubscribed, permission, isPushLoading, pushError, subscribe, unsubscribe, isEmailSubscribed, isEmailLoading, emailError, toggleEmailSubscription } = useNotifications();
   const { user } = useAuth();
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showPushLoginPrompt, setShowPushLoginPrompt] = useState(false);
@@ -88,6 +88,11 @@ export function SettingsModal({ isOpen, onClose, hardMode, setHardMode, translat
                     )}
                   </div>
                 )}
+                {pushError && (
+                  <div className="mt-3 text-sm text-[#C9A84C]">
+                    {pushError}
+                  </div>
+                )}
               </div>
               <button 
                 onClick={() => {
@@ -132,6 +137,11 @@ export function SettingsModal({ isOpen, onClose, hardMode, setHardMode, translat
                       Log In
                     </button>
                   )}
+                </div>
+              )}
+              {emailError && (
+                <div className="mt-3 text-sm text-[#C9A84C]">
+                  {emailError}
                 </div>
               )}
             </div>

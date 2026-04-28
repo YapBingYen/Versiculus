@@ -434,6 +434,7 @@ app.get('/api/notifications/public-key', (req, res) => {
 app.post('/api/notifications/subscribe', verifyToken, async (req: any, res: any) => {
   const subscription = req.body.subscription;
   const userId = req.user.id;
+  const pushOptions = { TTL: 60 * 60 };
 
   try {
     await pool.query(
@@ -443,7 +444,7 @@ app.post('/api/notifications/subscribe', verifyToken, async (req: any, res: any)
     if (subscription) {
       const payload = JSON.stringify({ title: 'Push Enabled', body: 'You will now receive daily Versiculus reminders.' });
       try {
-        await webpush.sendNotification(subscription, payload);
+        await webpush.sendNotification(subscription, payload, pushOptions);
       } catch (err: any) {
         if (err?.statusCode === 404 || err?.statusCode === 410) {
           await pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [userId]);
@@ -471,7 +472,11 @@ app.post('/api/notifications/email-subscribe', verifyToken, async (req: any, res
       const emailRes = await pool.query('SELECT email FROM users WHERE id = $1', [userId]);
       const to = emailRes.rows[0]?.email;
       if (to) {
-        await sendEmailNotification(to, 'Email Reminders Enabled', 'You will now receive an email when a new daily puzzle is ready.');
+        const ok = await sendEmailNotification(to, 'Email Reminders Enabled', 'You will now receive an email when a new daily puzzle is ready.');
+        if (!ok) {
+          await pool.query('UPDATE users SET email_notifications = false WHERE id = $1', [userId]);
+          return res.status(500).json({ success: false, error: 'Email is not configured on the server yet.' });
+        }
       }
     }
     res.status(200).json({ success: true, message: 'Email preferences updated.' });
@@ -489,41 +494,53 @@ app.post('/api/admin/notify-all', verifyToken, async (req: any, res) => {
 
   const { title, body } = req.body;
   const payload = JSON.stringify({ title: title || 'New Verse!', body: body || 'Play today\'s Versiculus puzzle.' });
+  const pushOptions = { TTL: 60 * 60 };
 
   try {
     // Handle Push Notifications
     const pushResult = await pool.query('SELECT id, push_subscription FROM users WHERE push_subscription IS NOT NULL');
     const pushUsers = pushResult.rows;
 
-    const pushNotifications = pushUsers.map(user => {
+    let pushSent = 0;
+    let pushCleared = 0;
+    let pushFailed = 0;
+    for (const user of pushUsers) {
       const subscription = parsePushSubscription(user.push_subscription);
       if (!subscription) {
-        return pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [user.id]);
+        pushCleared += 1;
+        await pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [user.id]);
+        continue;
       }
-      return webpush.sendNotification(subscription, payload)
-        .catch(err => {
-          if (err.statusCode === 404 || err.statusCode === 410) {
-            console.log('Subscription has expired or is no longer valid: ', err);
-            return pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [user.id]);
-          } else {
-            console.error('Subscription is no longer valid: ', err);
-          }
-        });
-    });
-
-    await Promise.all(pushNotifications);
+      try {
+        await webpush.sendNotification(subscription, payload, pushOptions);
+        pushSent += 1;
+      } catch (err: any) {
+        if (err?.statusCode === 404 || err?.statusCode === 410) {
+          pushCleared += 1;
+          await pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [user.id]);
+        } else {
+          pushFailed += 1;
+          console.error('Push send failed:', err);
+        }
+      }
+    }
 
     // Handle Email Notifications
     const emailResult = await pool.query('SELECT email FROM users WHERE email_notifications = true');
     const emailUsers = emailResult.rows;
 
-    const emailNotifications = emailUsers.map(user => {
-      return sendEmailNotification(user.email, title || 'New Verse!', body || 'Play today\'s Versiculus puzzle.');
+    let emailSent = 0;
+    let emailFailed = 0;
+    for (const user of emailUsers) {
+      const ok = await sendEmailNotification(user.email, title || 'New Verse!', body || 'Play today\'s Versiculus puzzle.');
+      if (ok) emailSent += 1;
+      else emailFailed += 1;
+    }
+
+    res.json({
+      success: true,
+      message: `Push sent: ${pushSent}. Cleared: ${pushCleared}. Failed: ${pushFailed}. Emails sent: ${emailSent}. Email failed: ${emailFailed}.`
     });
-
-    await Promise.all(emailNotifications);
-
-    res.json({ success: true, message: `Push sent to ${pushUsers.length} users. Emails sent to ${emailUsers.length} users.` });
   } catch (error) {
     console.error('Error sending notifications:', error);
     res.status(500).json({ error: 'Failed to send notifications.' });
