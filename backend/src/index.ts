@@ -125,6 +125,17 @@ const parsePushSubscription = (raw: any) => {
   return raw;
 };
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const createMaskedText = (fullText: string, keyWords: string[]) => {
+  let maskedText = fullText;
+  keyWords.forEach((word: string) => {
+    const blank = `[${'_'.repeat(word.length)}]`;
+    const regex = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'i');
+    maskedText = maskedText.replace(regex, blank);
+  });
+  return maskedText;
+};
+
 // ---------------------------------------------------------
 // GET /api/daily
 // Returns today's masked verse and metadata
@@ -267,14 +278,7 @@ app.get('/api/daily', async (req, res) => {
       }
     }
     
-    // Generate masked text on the backend
-    let maskedText = verse.fullText;
-    const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    verse.keyWords.forEach((word: string) => {
-      const blank = `[${'_'.repeat(word.length)}]`;
-      const regex = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'i');
-      maskedText = maskedText.replace(regex, blank);
-    });
+    const maskedText = createMaskedText(verse.fullText, verse.keyWords);
 
     res.json({
       id: verse.id,
@@ -288,6 +292,32 @@ app.get('/api/daily', async (req, res) => {
     
   } catch (error) {
     console.error('Error fetching daily verse:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/practice', verifyToken, async (req, res) => {
+  try {
+    const translation = (req.query.translation as string) || 'NIV';
+    const difficulty = parseInt(req.query.difficulty as string, 10) || 1;
+    const count = difficulty === 3 ? 6 : 4;
+
+    const randomVerseData = await fetchRandomVerse(translation);
+    const keyWords = selectKeyWords(randomVerseData.text, count);
+    const maskedText = createMaskedText(randomVerseData.text, keyWords);
+
+    res.json({
+      id: Date.now(),
+      reference: randomVerseData.reference,
+      fullText: randomVerseData.text,
+      keyWords,
+      maskedText,
+      translation,
+      difficulty,
+      mode: 'practice'
+    });
+  } catch (error) {
+    console.error('Error fetching practice verse:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -8,6 +8,7 @@ const MAX_ATTEMPTS = 6;
 
 export function useGame(dailyVerse: DailyVerse) {
   const blankCount = dailyVerse.keyWords.length;
+  const isPractice = dailyVerse.mode === 'practice';
   const [activeBlankIndex, setActiveBlankIndex] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const { updateStats } = useStats();
@@ -23,37 +24,42 @@ export function useGame(dailyVerse: DailyVerse) {
 
   // Load state on mount (client-side only to prevent SSR hydration mismatch)
   useEffect(() => {
-    // Incorporate blankCount into the key so Hard Mode doesn't collide with Normal Mode
+    const initialState: GameState = {
+      guesses: [],
+      feedback: [],
+      currentGuess: Array(blankCount).fill(''),
+      status: 'playing',
+      currentRow: 0,
+      hintsUsed: 0,
+    };
+
+    if (isPractice) {
+      setGameState(initialState);
+      setActiveBlankIndex(0);
+      setIsLoaded(true);
+      return;
+    }
+
     const todayKey = `${new Date().toISOString().split('T')[0]}-${dailyVerse.translation}-${blankCount}`;
     const saved = loadGameState(todayKey);
-    
     if (saved && saved.currentGuess && saved.currentGuess.length === blankCount) {
       setGameState(saved);
     } else {
-      // Create a fresh state for the new translation/day/difficulty
-      const initialState: GameState = {
-        guesses: [],
-        feedback: [],
-        currentGuess: Array(blankCount).fill(''),
-        status: 'playing',
-        currentRow: 0,
-        hintsUsed: 0,
-      };
       setGameState(initialState);
       saveGameState(todayKey, initialState);
     }
-    
+
     setActiveBlankIndex(0);
     setIsLoaded(true);
-  }, [dailyVerse.id, dailyVerse.translation, blankCount]);
+  }, [dailyVerse.id, dailyVerse.translation, blankCount, isPractice]);
 
   // Persist state when it changes
   useEffect(() => {
-    if (isLoaded) {
+    if (isLoaded && !isPractice) {
       const todayKey = `${new Date().toISOString().split('T')[0]}-${dailyVerse.translation}-${blankCount}`;
       saveGameState(todayKey, gameState);
     }
-  }, [gameState, isLoaded, dailyVerse.translation, blankCount]);
+  }, [gameState, isLoaded, dailyVerse.translation, blankCount, isPractice]);
 
   const updateCurrentGuess = useCallback((index: number, word: string) => {
     if (gameState.status !== 'playing') return;
@@ -126,7 +132,7 @@ export function useGame(dailyVerse: DailyVerse) {
     const isWin = feedback.every(state => state === 'correct');
     const isLoss = !isWin && gameState.currentRow === MAX_ATTEMPTS - 1;
 
-    if (isWin || isLoss) {
+    if (!isPractice && (isWin || isLoss)) {
       updateStats(isWin, gameState.currentRow + 1);
     }
 
@@ -142,7 +148,7 @@ export function useGame(dailyVerse: DailyVerse) {
     if (!isWin && !isLoss) {
       setActiveBlankIndex(0);
     }
-  }, [gameState, dailyVerse.keyWords, blankCount, updateStats]);
+  }, [gameState, dailyVerse.keyWords, blankCount, updateStats, isPractice]);
 
   const resetGame = useCallback(() => {
     const todayKey = `${new Date().toISOString().split('T')[0]}-${dailyVerse.translation}-${blankCount}`;

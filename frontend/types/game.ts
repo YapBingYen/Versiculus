@@ -22,4 +22,5 @@ export interface DailyVerse {
   maskedText: string; // The verse with blanks (for UI rendering)
   translation?: string; // The selected translation version
   difficulty?: number;
+  mode?: 'daily' | 'practice';
 }

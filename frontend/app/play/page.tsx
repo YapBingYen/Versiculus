@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from '../../components/layout/Header';
 import { VerseHeader } from '../../components/game/VerseHeader';
 import { GameGrid } from '../../components/game/GameGrid';
@@ -32,38 +32,59 @@ const MOCK_VERSE: DailyVerse = {
 export default function PlayPage() {
   const [dailyVerse, setDailyVerse] = useState<DailyVerse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { token } = useAuth();
   
   // V2 Settings State
   const [hardMode, setHardMode] = useState(false);
   const [translation, setTranslation] = useState('NIV');
+  const [mode, setMode] = useState<'daily' | 'practice'>('daily');
+  const [practiceSeed, setPracticeSeed] = useState(0);
+
+  const fetchVerse = useCallback(async (endpoint: string, opts?: { auth?: boolean }) => {
+    const res = await fetch(apiUrl(endpoint), {
+      headers: opts?.auth && token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+    if (!res.ok) throw new Error('Failed to fetch verse');
+    return res.json();
+  }, [token]);
 
   // Fetch the daily verse from the backend on mount
   useEffect(() => {
     setIsLoading(true);
-    fetch(apiUrl(`/api/daily?translation=${translation}&difficulty=${hardMode ? 3 : 1}`))
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch daily verse');
-        return res.json();
-      })
+    const difficulty = hardMode ? 3 : 1;
+    const endpoint =
+      mode === 'practice'
+        ? `/api/practice?translation=${translation}&difficulty=${difficulty}&seed=${practiceSeed}`
+        : `/api/daily?translation=${translation}&difficulty=${difficulty}`;
+
+    if (mode === 'practice' && !token) {
+      setMode('daily');
+      setIsLoading(false);
+      return;
+    }
+
+    fetchVerse(endpoint, { auth: mode === 'practice' })
       .then(data => {
-        setDailyVerse(data);
-        
-        // Sync frontend settings with what the backend actually returned
-        if (data.translation && data.translation !== translation) {
-          setTranslation(data.translation);
+        const verse = mode === 'practice' ? data : { ...data, mode: 'daily' };
+        setDailyVerse(verse);
+
+        if (mode === 'daily') {
+          if (data.translation && data.translation !== translation) {
+            setTranslation(data.translation);
+          }
+          if (data.difficulty !== undefined && (data.difficulty === 3) !== hardMode) {
+            setHardMode(data.difficulty === 3);
+          }
         }
-        if (data.difficulty !== undefined && (data.difficulty === 3) !== hardMode) {
-          setHardMode(data.difficulty === 3);
-        }
-        
+
         setIsLoading(false);
       })
       .catch(err => {
         console.warn('Backend not reachable, falling back to mock verse.', err);
-        setDailyVerse(MOCK_VERSE); // Fallback to mock verse for development/demo
+        setDailyVerse({ ...MOCK_VERSE, mode: 'daily' });
         setIsLoading(false);
       });
-  }, [translation, hardMode]);
+  }, [translation, hardMode, mode, practiceSeed, token, fetchVerse]);
 
   if (isLoading || !dailyVerse) {
     return (
@@ -73,10 +94,50 @@ export default function PlayPage() {
     );
   }
 
-  return <GameCore verse={dailyVerse} hardMode={hardMode} setHardMode={setHardMode} translation={translation} setTranslation={setTranslation} />;
+  return (
+    <GameCore
+      verse={dailyVerse}
+      hardMode={hardMode}
+      setHardMode={setHardMode}
+      translation={translation}
+      setTranslation={setTranslation}
+      mode={mode}
+      onPlayPractice={() => {
+        setMode('practice');
+        setPracticeSeed(s => s + 1);
+      }}
+      onNextPractice={() => {
+        setMode('practice');
+        setPracticeSeed(s => s + 1);
+      }}
+      onBackToDaily={() => {
+        setMode('daily');
+      }}
+    />
+  );
 }
 
-function GameCore({ verse, hardMode, setHardMode, translation, setTranslation }: { verse: DailyVerse, hardMode: boolean, setHardMode: (v: boolean) => void, translation: string, setTranslation: (v: string) => void }) {
+function GameCore({
+  verse,
+  hardMode,
+  setHardMode,
+  translation,
+  setTranslation,
+  mode,
+  onPlayPractice,
+  onNextPractice,
+  onBackToDaily,
+}: {
+  verse: DailyVerse;
+  hardMode: boolean;
+  setHardMode: (v: boolean) => void;
+  translation: string;
+  setTranslation: (v: string) => void;
+  mode: 'daily' | 'practice';
+  onPlayPractice: () => void;
+  onNextPractice: () => void;
+  onBackToDaily: () => void;
+}) {
   const {
     gameState,
     submitGuess,
@@ -200,20 +261,59 @@ function GameCore({ verse, hardMode, setHardMode, translation, setTranslation }:
             <p className="text-white font-lora mb-6 text-lg">
               {verse.fullText}
             </p>
-            <button 
-              onClick={handleShare}
-              className="w-full py-3 px-4 mb-3 bg-[#538D4E] hover:bg-[#467741] transition-colors text-white rounded font-inter font-bold text-lg shadow-lg flex items-center justify-center gap-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-              Share Result
-            </button>
-            <button 
-              onClick={resetGame}
-              className="w-full py-3 px-4 bg-[#3A3A3C] hover:bg-[#565758] transition-colors text-white rounded font-inter font-bold text-lg flex items-center justify-center gap-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
-              Reset for Testing
-            </button>
+            {mode === 'daily' ? (
+              <>
+                <button 
+                  onClick={handleShare}
+                  className="w-full py-3 px-4 mb-3 bg-[#538D4E] hover:bg-[#467741] transition-colors text-white rounded font-inter font-bold text-lg shadow-lg flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                  Share Result
+                </button>
+                <button 
+                  onClick={() => {
+                    if (!user) {
+                      showToast('Log in to play unlimited mode.');
+                      setIsAuthOpen(true);
+                      return;
+                    }
+                    onPlayPractice();
+                  }}
+                  className="w-full py-3 px-4 mb-3 bg-[#2C5F8A] hover:bg-[#254F72] transition-colors text-white rounded font-inter font-bold text-lg shadow-lg"
+                >
+                  Play Another Verse
+                </button>
+                <button 
+                  onClick={resetGame}
+                  className="w-full py-3 px-4 bg-[#3A3A3C] hover:bg-[#565758] transition-colors text-white rounded font-inter font-bold text-lg flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                  Reset for Testing
+                </button>
+              </>
+            ) : (
+              <>
+                <button 
+                  onClick={() => {
+                    if (!user) {
+                      showToast('Log in to play unlimited mode.');
+                      setIsAuthOpen(true);
+                      return;
+                    }
+                    onNextPractice();
+                  }}
+                  className="w-full py-3 px-4 mb-3 bg-[#2C5F8A] hover:bg-[#254F72] transition-colors text-white rounded font-inter font-bold text-lg shadow-lg"
+                >
+                  Next Verse
+                </button>
+                <button 
+                  onClick={onBackToDaily}
+                  className="w-full py-3 px-4 bg-[#3A3A3C] hover:bg-[#565758] transition-colors text-white rounded font-inter font-bold text-lg"
+                >
+                  Back to Daily
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
