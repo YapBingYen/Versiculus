@@ -229,7 +229,43 @@ app.get('/api/daily', async (req, res) => {
       return res.status(404).json({ error: 'No verses found in the database.' });
     }
 
-    const verse = result.rows[0];
+    let verse = result.rows[0];
+
+    const requestedDifficulty = difficulty;
+    const requestedTranslation = translation as string;
+
+    if (verse.reference && verse.fullText && verse.translation === requestedTranslation) {
+      const updated = await fetchVerseByReference(verse.reference, requestedTranslation);
+      if (updated?.text && updated.text.trim() !== verse.fullText.trim()) {
+        const expectedCount = requestedDifficulty === 3 ? 6 : 4;
+        const regeneratedKeyWords = selectKeyWords(updated.text, expectedCount);
+        const updatedRow = await pool.query(
+          `UPDATE verses
+           SET full_text = $1, key_words = $2
+           WHERE id = $3
+           RETURNING id, reference, full_text as "fullText", key_words as "keyWords", translation, difficulty`,
+          [updated.text, regeneratedKeyWords, verse.id]
+        );
+        if (updatedRow.rows.length > 0) {
+          verse = updatedRow.rows[0];
+        }
+      }
+    }
+
+    const expectedCount = requestedDifficulty === 3 ? 6 : 4;
+    if (Array.isArray(verse.keyWords) && verse.fullText && verse.keyWords.length !== expectedCount) {
+      const regeneratedKeyWords = selectKeyWords(verse.fullText, expectedCount);
+      const updatedRow = await pool.query(
+        `UPDATE verses
+         SET key_words = $1
+         WHERE id = $2
+         RETURNING id, reference, full_text as "fullText", key_words as "keyWords", translation, difficulty`,
+        [regeneratedKeyWords, verse.id]
+      );
+      if (updatedRow.rows.length > 0) {
+        verse = updatedRow.rows[0];
+      }
+    }
     
     // Generate masked text on the backend
     let maskedText = verse.fullText;

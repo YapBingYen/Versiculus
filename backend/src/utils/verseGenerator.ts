@@ -37,7 +37,7 @@ export async function fetchVerseByReference(reference: string, translation: stri
   try {
     let apiTranslation = 'web';
     if (translation === 'KJV') apiTranslation = 'kjv';
-    if (translation === 'ESV') apiTranslation = 'web';
+    if (translation === 'ESV') apiTranslation = 'asv';
     if (translation === 'NIV') apiTranslation = 'web';
     
     const response = await axios.get(`https://bible-api.com/${encodeURIComponent(reference)}?translation=${apiTranslation}`, {
@@ -64,14 +64,10 @@ export async function fetchRandomVerse(translation: string = 'NIV'): Promise<{ r
     const reference = FAMOUS_VERSES[randomIndex] as string;
     
     // Map our frontend translation string to bible-api.com supported translations
-    // Defaulting to WEB (World English Bible) if NIV isn't fully supported, or KJV
     let apiTranslation = 'web';
     if (translation === 'KJV') apiTranslation = 'kjv';
-    // Note: NIV is heavily copyrighted and usually not available in free open APIs, 
-    // so bible-api.com might fallback or fail. We'll use 'web' (World English Bible) 
-    // as a modern-language proxy for NIV/ESV if requested.
-    if (translation === 'ESV') apiTranslation = 'web'; // proxy for modern
-    if (translation === 'NIV') apiTranslation = 'web'; // proxy for modern
+    if (translation === 'ESV') apiTranslation = 'asv';
+    if (translation === 'NIV') apiTranslation = 'web';
     
     const response = await axios.get(`https://bible-api.com/${encodeURIComponent(reference)}?translation=${apiTranslation}`, {
       headers: {
@@ -97,47 +93,44 @@ export async function fetchRandomVerse(translation: string = 'NIV'): Promise<{ r
 }
 
 export function selectKeyWords(text: string, count: number = 4): string[] {
-  // Extract words containing only letters (min 4 letters)
   const words = text.match(/[a-zA-Z]+/g) || [];
-  
-  // Filter out stop words and short words
-  const candidates = words.filter(w => {
-    const lower = w.toLowerCase();
-    return lower.length >= 4 && !STOP_WORDS.has(lower);
-  });
-  
-  // Deduplicate case-insensitively, preserving original order of first appearance
-  const uniqueCandidates: string[] = [];
-  const seen = new Set<string>();
-  for (const w of candidates) {
-    const lower = w.toLowerCase();
-    if (!seen.has(lower)) {
-      seen.add(lower);
-      uniqueCandidates.push(lower);
-    }
-  }
-  
-  // Randomly select indices to keep
-  const selectedIndices = new Set<number>();
-  
-  // Rule: We must never blank out EVERY valid word in the verse.
-  // If the verse is so short that our requested count is equal to or greater than 
-  // the total number of words in the verse, we must leave at least ONE word visible.
-  const totalWordsInVerse = text.match(/[a-zA-Z]+/g)?.length || 0;
+  const totalWordsInVerse = words.length;
   const safeCount = Math.min(count, Math.max(1, totalWordsInVerse - 1));
-  const maxToSelect = Math.min(safeCount, uniqueCandidates.length);
-  
-  // If maxToSelect is 0 (e.g. verse has only 1 word), we return an empty array
-  if (maxToSelect > 0) {
-    while (selectedIndices.size < maxToSelect) {
-      selectedIndices.add(Math.floor(Math.random() * uniqueCandidates.length));
-    }
+
+  const minimalStopWords = new Set([
+    'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'for',
+    'if', 'in', 'into', 'is', 'it', 'no', 'not', 'of', 'on', 'or',
+    'that', 'the', 'their', 'then', 'there', 'these', 'they',
+    'this', 'to', 'was', 'were', 'with', 'he', 'she', 'him', 'her',
+    'his', 'hers', 'my', 'your', 'yours', 'our', 'ours', 'we', 'us',
+    'them', 'who', 'whom', 'whose', 'which', 'what', 'where', 'when',
+    'why', 'how'
+  ]);
+
+  const stages = [
+    { minLen: 4, stop: STOP_WORDS },
+    { minLen: 3, stop: STOP_WORDS },
+    { minLen: 3, stop: minimalStopWords }
+  ];
+
+  let eligible: number[] = [];
+  for (const stage of stages) {
+    const current = words
+      .map((w, idx) => ({ w: w.toLowerCase(), idx }))
+      .filter(x => x.w.length >= stage.minLen && !stage.stop.has(x.w))
+      .map(x => x.idx);
+    eligible = current;
+    if (eligible.length >= safeCount) break;
   }
-  
-  // Map back to words and sort by their original appearance index
-  const finalWords = Array.from(selectedIndices)
+
+  const selected = new Set<number>();
+  const maxToSelect = Math.min(safeCount, eligible.length);
+  while (selected.size < maxToSelect) {
+    selected.add(eligible[Math.floor(Math.random() * eligible.length)] as number);
+  }
+
+  return Array.from(selected)
     .sort((a, b) => a - b)
-    .map(index => uniqueCandidates[index] as string);
-  
-  return finalWords;
+    .map(i => (words[i] || '').toLowerCase())
+    .filter(Boolean);
 }
