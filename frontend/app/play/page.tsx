@@ -32,35 +32,13 @@ const MOCK_VERSE: DailyVerse = {
 export default function PlayPage() {
   const [dailyVerse, setDailyVerse] = useState<DailyVerse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isReady, setIsReady] = useState(false);
   
   // V2 Settings State
   const [hardMode, setHardMode] = useState(false);
   const [translation, setTranslation] = useState('NIV');
 
-  // Load from localStorage on mount to prevent SSR hydration mismatch
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedHardMode = localStorage.getItem('versiculus_hardMode');
-      if (savedHardMode !== null) setHardMode(savedHardMode === 'true');
-      
-      const savedTranslation = localStorage.getItem('versiculus_translation');
-      if (savedTranslation) setTranslation(savedTranslation);
-    }
-    setIsReady(true);
-  }, []);
-
-  // Save preferences to localStorage whenever they change
-  useEffect(() => {
-    if (isReady) {
-      localStorage.setItem('versiculus_hardMode', String(hardMode));
-      localStorage.setItem('versiculus_translation', translation);
-    }
-  }, [hardMode, translation, isReady]);
-
   // Fetch the daily verse from the backend on mount
   useEffect(() => {
-    if (!isReady) return;
     setIsLoading(true);
     fetch(apiUrl(`/api/daily?translation=${translation}&difficulty=${hardMode ? 3 : 1}`))
       .then(res => {
@@ -71,10 +49,10 @@ export default function PlayPage() {
         setDailyVerse(data);
         
         // Sync frontend settings with what the backend actually returned
-        if (data.translation) {
+        if (data.translation && data.translation !== translation) {
           setTranslation(data.translation);
         }
-        if (data.difficulty !== undefined) {
+        if (data.difficulty !== undefined && (data.difficulty === 3) !== hardMode) {
           setHardMode(data.difficulty === 3);
         }
         
@@ -85,7 +63,7 @@ export default function PlayPage() {
         setDailyVerse(MOCK_VERSE); // Fallback to mock verse for development/demo
         setIsLoading(false);
       });
-  }, [translation, hardMode, isReady]);
+  }, [translation, hardMode]);
 
   if (isLoading || !dailyVerse) {
     return (

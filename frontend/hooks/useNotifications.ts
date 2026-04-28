@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { apiUrl } from '../lib/api';
 
-export function useNotifications() {
+export function useNotifications(options?: { enablePush?: boolean }) {
   const { user, token } = useAuth();
+  const enablePush = options?.enablePush ?? true;
   const [isSupported, setIsSupported] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>('default');
@@ -11,7 +12,7 @@ export function useNotifications() {
   const [isEmailLoading, setIsEmailLoading] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+    if (enablePush && typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
       setIsSupported(true);
       setPermission(Notification.permission);
       checkSubscription();
@@ -133,8 +134,9 @@ export function useNotifications() {
   const toggleEmailSubscription = async () => {
     if (!user || !token) return;
     setIsEmailLoading(true);
+    const newStatus = !isEmailSubscribed;
+    setIsEmailSubscribed(newStatus);
     try {
-      const newStatus = !isEmailSubscribed;
       const res = await fetch(apiUrl('/api/notifications/email-subscribe'), {
         method: 'POST',
         headers: {
@@ -144,10 +146,11 @@ export function useNotifications() {
         body: JSON.stringify({ enabled: newStatus })
       });
       
-      if (res.ok) {
-        setIsEmailSubscribed(newStatus);
+      if (!res.ok) {
+        setIsEmailSubscribed(!newStatus);
       }
     } catch (err) {
+      setIsEmailSubscribed(!newStatus);
       console.error('Failed to update email preferences', err);
     } finally {
       setIsEmailLoading(false);

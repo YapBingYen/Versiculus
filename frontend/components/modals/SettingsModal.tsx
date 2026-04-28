@@ -13,7 +13,7 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose, hardMode, setHardMode, translation, setTranslation, onOpenAuth }: SettingsModalProps) {
-  const { isSupported, isSubscribed, permission, subscribe, unsubscribe, isEmailSubscribed, isEmailLoading, toggleEmailSubscription } = useNotifications();
+  const { isEmailSubscribed, isEmailLoading, toggleEmailSubscription } = useNotifications({ enablePush: false });
   const { user } = useAuth();
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
@@ -60,29 +60,6 @@ export function SettingsModal({ isOpen, onClose, hardMode, setHardMode, translat
               <option value="KJV">KJV</option>
             </select>
           </div>
-
-          {/* Notifications Toggle */}
-          {isSupported && (
-            <div className="flex justify-between items-center border-b border-[#3A3A3C] pb-6">
-              <div className="flex-1 pr-4">
-                <h3 className="font-bold text-lg">Push Notifications</h3>
-                <p className="text-sm text-[#818384] mt-1">Get device notifications when a new verse is available to play.</p>
-              </div>
-              <button 
-                onClick={() => {
-                  if (!isSubscribed) {
-                    subscribe();
-                  } else {
-                    unsubscribe();
-                  }
-                }}
-                disabled={permission === 'denied'}
-                className={`w-12 h-6 rounded-full transition-colors relative ${isSubscribed ? 'bg-[#538D4E]' : 'bg-[#565758]'} ${permission === 'denied' ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${isSubscribed ? 'translate-x-6' : 'translate-x-1'}`}></div>
-              </button>
-            </div>
-          )}
 
           {/* Email Notifications Toggle */}
           <div className="flex justify-between items-center border-b border-[#3A3A3C] pb-6">
