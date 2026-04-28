@@ -2,17 +2,17 @@ import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { apiUrl } from '../lib/api';
 
-export function useNotifications(options?: { enablePush?: boolean }) {
+export function useNotifications() {
   const { user, token } = useAuth();
-  const enablePush = options?.enablePush ?? true;
   const [isSupported, setIsSupported] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>('default');
+  const [isPushLoading, setIsPushLoading] = useState(false);
   const [isEmailSubscribed, setIsEmailSubscribed] = useState(false);
   const [isEmailLoading, setIsEmailLoading] = useState(false);
 
   useEffect(() => {
-    if (enablePush && typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
       setIsSupported(true);
       setPermission(Notification.permission);
       checkSubscription();
@@ -50,7 +50,8 @@ export function useNotifications(options?: { enablePush?: boolean }) {
 
   const checkSubscription = async () => {
     try {
-      const registration = await navigator.serviceWorker.register('/sw.js');
+      const existing = await navigator.serviceWorker.getRegistration();
+      const registration = existing || (await navigator.serviceWorker.register('/sw.js'));
       const subscription = await registration.pushManager.getSubscription();
       setIsSubscribed(!!subscription);
     } catch (err) {
@@ -62,6 +63,10 @@ export function useNotifications(options?: { enablePush?: boolean }) {
     if (!isSupported) return false;
     
     try {
+      if (!user || !token) {
+        return false;
+      }
+      setIsPushLoading(true);
       const permissionResult = await Notification.requestPermission();
       setPermission(permissionResult);
       
@@ -69,7 +74,8 @@ export function useNotifications(options?: { enablePush?: boolean }) {
         throw new Error('Notification permission denied');
       }
 
-      const registration = await navigator.serviceWorker.ready;
+      const existing = await navigator.serviceWorker.getRegistration();
+      const registration = existing || (await navigator.serviceWorker.register('/sw.js'));
       
       // Fetch VAPID public key from backend
       const res = await fetch(apiUrl('/api/notifications/public-key'));
@@ -81,15 +87,20 @@ export function useNotifications(options?: { enablePush?: boolean }) {
       });
 
       // Send to backend
-      if (user && token) {
-        await fetch(apiUrl('/api/notifications/subscribe'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ subscription })
-        });
+      const saveRes = await fetch(apiUrl('/api/notifications/subscribe'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ subscription })
+      });
+      if (!saveRes.ok) {
+        try {
+          await subscription.unsubscribe();
+        } catch {}
+        setIsSubscribed(false);
+        return false;
       }
 
       setIsSubscribed(true);
@@ -97,6 +108,8 @@ export function useNotifications(options?: { enablePush?: boolean }) {
     } catch (err) {
       console.error('Failed to subscribe the user: ', err);
       return false;
+    } finally {
+      setIsPushLoading(false);
     }
   };
 
@@ -104,6 +117,10 @@ export function useNotifications(options?: { enablePush?: boolean }) {
     if (!isSupported) return false;
     
     try {
+      if (!user || !token) {
+        return false;
+      }
+      setIsPushLoading(true);
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
       
@@ -112,22 +129,22 @@ export function useNotifications(options?: { enablePush?: boolean }) {
       }
 
       // Send to backend to remove subscription
-      if (user && token) {
-        await fetch(apiUrl('/api/notifications/subscribe'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ subscription: null })
-        });
-      }
+      await fetch(apiUrl('/api/notifications/subscribe'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ subscription: null })
+      });
 
       setIsSubscribed(false);
       return true;
     } catch (err) {
       console.error('Failed to unsubscribe the user: ', err);
       return false;
+    } finally {
+      setIsPushLoading(false);
     }
   };
 
@@ -161,6 +178,7 @@ export function useNotifications(options?: { enablePush?: boolean }) {
     isSupported,
     isSubscribed,
     permission,
+    isPushLoading,
     subscribe,
     unsubscribe,
     isEmailSubscribed,

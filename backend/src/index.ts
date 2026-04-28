@@ -440,6 +440,17 @@ app.post('/api/notifications/subscribe', verifyToken, async (req: any, res: any)
       'UPDATE users SET push_subscription = $1 WHERE id = $2',
       [subscription ? JSON.stringify(subscription) : null, userId]
     );
+    if (subscription) {
+      const payload = JSON.stringify({ title: 'Push Enabled', body: 'You will now receive daily Versiculus reminders.' });
+      try {
+        await webpush.sendNotification(subscription, payload);
+      } catch (err: any) {
+        if (err?.statusCode === 404 || err?.statusCode === 410) {
+          await pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [userId]);
+        }
+        return res.status(400).json({ success: false, error: 'Push subscription could not be validated.' });
+      }
+    }
     res.status(201).json({ success: true, message: 'Subscription saved.' });
   } catch (error) {
     console.error('Error saving subscription:', error);
@@ -456,6 +467,13 @@ app.post('/api/notifications/email-subscribe', verifyToken, async (req: any, res
       'UPDATE users SET email_notifications = $1 WHERE id = $2',
       [enabled, userId]
     );
+    if (enabled) {
+      const emailRes = await pool.query('SELECT email FROM users WHERE id = $1', [userId]);
+      const to = emailRes.rows[0]?.email;
+      if (to) {
+        await sendEmailNotification(to, 'Email Reminders Enabled', 'You will now receive an email when a new daily puzzle is ready.');
+      }
+    }
     res.status(200).json({ success: true, message: 'Email preferences updated.' });
   } catch (error) {
     console.error('Error saving email preferences:', error);
