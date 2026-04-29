@@ -166,7 +166,7 @@ export default function AdminPage() {
 
         <div className="mb-6">
           <h2 className="text-xl font-playfair font-bold text-[#C9A84C]">Broadcast Notification</h2>
-          <p className="text-[#818384] text-sm mt-1">Send a push notification and email to all subscribed users.</p>
+          <p className="text-[#818384] text-sm mt-1">Send an email notification to all users with Email Reminders enabled.</p>
         </div>
 
         <form onSubmit={handleNotifyAll} className="flex flex-col gap-4 font-inter">

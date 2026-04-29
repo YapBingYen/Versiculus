@@ -30,7 +30,7 @@ export function Header({ onOpenHelp, onOpenStats, onOpenAuth, onOpenLeaderboard,
             </button>
             <div className="absolute top-full left-0 hidden group-hover:flex flex-col bg-[#1A1A1B] border border-[#3A3A3C] rounded shadow-xl w-32 py-1 z-50">
               <button onClick={onLogout} className="px-4 py-2 text-left text-sm text-[#818384] hover:text-white hover:bg-[#3A3A3C]">Log Out</button>
-              {user.username === 'admin' && (
+              {user.isAdmin && (
                 <Link href="/admin" className="px-4 py-2 text-left text-sm text-[#C9A84C] hover:bg-[#3A3A3C]">Admin CMS</Link>
               )}
             </div>

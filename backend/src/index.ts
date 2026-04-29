@@ -8,29 +8,33 @@ import cron from 'node-cron';
 import { pool } from './db';
 import { fetchRandomVerse, fetchVerseByReference, selectKeyWords } from './utils/verseGenerator';
 import { sendEmailNotification } from './utils/mailer';
+import { rateLimit } from './rateLimit';
 
 dotenv.config();
 
-// Configure Web Push
-if (process.env.PUBLIC_VAPID_KEY && process.env.PRIVATE_VAPID_KEY) {
-  webpush.setVapidDetails(
-    'mailto:hello@versiculus.app',
-    process.env.PUBLIC_VAPID_KEY,
-    process.env.PRIVATE_VAPID_KEY
-  );
-} else {
-  console.warn('WARNING: VAPID keys not found. Push notifications will not work.');
-}
-
 const app = express();
-const isProd = process.env.NODE_ENV === 'production';
+const isProd = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
 const PORT = parseInt(process.env.PORT || '5001', 10);
 const JWT_SECRET = process.env.JWT_SECRET || (isProd ? '' : 'super-secret-versiculus-key');
+const PUSH_NOTIFICATIONS_ENABLED = process.env.PUSH_NOTIFICATIONS_ENABLED === 'true';
+
+if (PUSH_NOTIFICATIONS_ENABLED) {
+  if (process.env.PUBLIC_VAPID_KEY && process.env.PRIVATE_VAPID_KEY) {
+    webpush.setVapidDetails(
+      'mailto:hello@versiculus.app',
+      process.env.PUBLIC_VAPID_KEY,
+      process.env.PRIVATE_VAPID_KEY
+    );
+  } else {
+    console.warn('WARNING: VAPID keys not found. Push notifications will not work.');
+  }
+}
 
 if (isProd && !JWT_SECRET) {
   throw new Error('JWT_SECRET is required in production');
 }
 
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json());
 
@@ -50,7 +54,13 @@ app.get('/healthz', async (_req, res) => {
 // ---------------------------------------------------------
 // AUTH ENDPOINTS
 // ---------------------------------------------------------
-app.post('/api/auth/register', async (req, res) => {
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  key: (req) => `${req.ip}:${req.path}:${String((req as any).body?.email || '')}`,
+});
+
+app.post('/api/auth/register', authLimiter, async (req, res) => {
   const { username, email, password } = req.body;
   try {
     const checkUser = await pool.query('SELECT id FROM users WHERE email = $1 OR username = $2', [email, username]);
@@ -62,7 +72,7 @@ app.post('/api/auth/register', async (req, res) => {
     const password_hash = await bcrypt.hash(password, salt);
 
     const newUser = await pool.query(
-      'INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email',
+      'INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, is_admin',
       [username, email, password_hash]
     );
 
@@ -70,14 +80,22 @@ app.post('/api/auth/register', async (req, res) => {
     await pool.query('INSERT INTO user_stats (user_id) VALUES ($1)', [newUser.rows[0].id]);
 
     const token = jwt.sign({ id: newUser.rows[0].id, username }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: newUser.rows[0] });
+    res.json({
+      token,
+      user: {
+        id: newUser.rows[0].id,
+        username: newUser.rows[0].username,
+        email: newUser.rows[0].email,
+        isAdmin: !!newUser.rows[0].is_admin,
+      },
+    });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   const { email, password } = req.body;
   try {
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -92,7 +110,10 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { id: user.id, username: user.username, email: user.email } });
+    res.json({
+      token,
+      user: { id: user.id, username: user.username, email: user.email, isAdmin: !!user.is_admin },
+    });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -110,6 +131,19 @@ const verifyToken = (req: any, res: any, next: any) => {
     next();
   } catch (err) {
     res.status(400).json({ error: 'Invalid token' });
+  }
+};
+
+const requireAdmin = async (req: any, res: any, next: any) => {
+  try {
+    const result = await pool.query('SELECT is_admin FROM users WHERE id = $1', [req.user.id]);
+    const isAdmin = !!result.rows[0]?.is_admin;
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    next();
+  } catch {
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -455,6 +489,9 @@ app.get('/api/notifications/preferences', verifyToken, async (req: any, res) => 
 });
 
 app.get('/api/notifications/public-key', (req, res) => {
+  if (!PUSH_NOTIFICATIONS_ENABLED) {
+    return res.status(404).send('');
+  }
   if (!process.env.PUBLIC_VAPID_KEY) {
     return res.status(500).send('');
   }
@@ -462,6 +499,9 @@ app.get('/api/notifications/public-key', (req, res) => {
 });
 
 app.post('/api/notifications/subscribe', verifyToken, async (req: any, res: any) => {
+  if (!PUSH_NOTIFICATIONS_ENABLED) {
+    return res.status(410).json({ success: false, error: 'Push notifications are disabled.' });
+  }
   const subscription = req.body.subscription;
   const userId = req.user.id;
   const pushOptions = { TTL: 60 * 60 };
@@ -516,45 +556,13 @@ app.post('/api/notifications/email-subscribe', verifyToken, async (req: any, res
   }
 });
 
-app.post('/api/admin/notify-all', verifyToken, async (req: any, res) => {
-  // Real app: Verify admin role
-  if (req.user.username !== 'admin') {
-    return res.status(403).json({ error: 'Unauthorized' });
-  }
+app.post('/api/admin/notify-all', verifyToken, requireAdmin, async (req: any, res) => {
 
   const { title, body } = req.body;
-  const payload = JSON.stringify({ title: title || 'New Verse!', body: body || 'Play today\'s Versiculus puzzle.' });
-  const pushOptions = { TTL: 60 * 60 };
+  const payloadTitle = title || 'New Verse!';
+  const payloadBody = body || 'Play today\'s Versiculus puzzle.';
 
   try {
-    // Handle Push Notifications
-    const pushResult = await pool.query('SELECT id, push_subscription FROM users WHERE push_subscription IS NOT NULL');
-    const pushUsers = pushResult.rows;
-
-    let pushSent = 0;
-    let pushCleared = 0;
-    let pushFailed = 0;
-    for (const user of pushUsers) {
-      const subscription = parsePushSubscription(user.push_subscription);
-      if (!subscription) {
-        pushCleared += 1;
-        await pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [user.id]);
-        continue;
-      }
-      try {
-        await webpush.sendNotification(subscription, payload, pushOptions);
-        pushSent += 1;
-      } catch (err: any) {
-        if (err?.statusCode === 404 || err?.statusCode === 410) {
-          pushCleared += 1;
-          await pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [user.id]);
-        } else {
-          pushFailed += 1;
-          console.error('Push send failed:', err);
-        }
-      }
-    }
-
     // Handle Email Notifications
     const emailResult = await pool.query('SELECT email FROM users WHERE email_notifications = true');
     const emailUsers = emailResult.rows;
@@ -562,14 +570,14 @@ app.post('/api/admin/notify-all', verifyToken, async (req: any, res) => {
     let emailSent = 0;
     let emailFailed = 0;
     for (const user of emailUsers) {
-      const ok = await sendEmailNotification(user.email, title || 'New Verse!', body || 'Play today\'s Versiculus puzzle.');
+      const ok = await sendEmailNotification(user.email, payloadTitle, payloadBody);
       if (ok) emailSent += 1;
       else emailFailed += 1;
     }
 
     res.json({
       success: true,
-      message: `Push sent: ${pushSent}. Cleared: ${pushCleared}. Failed: ${pushFailed}. Emails sent: ${emailSent}. Email failed: ${emailFailed}.`
+      message: `Emails sent: ${emailSent}. Email failed: ${emailFailed}.`
     });
   } catch (error) {
     console.error('Error sending notifications:', error);
@@ -580,7 +588,7 @@ app.post('/api/admin/notify-all', verifyToken, async (req: any, res) => {
 // ---------------------------------------------------------
 // ADMIN CMS ENDPOINTS
 // ---------------------------------------------------------
-app.post('/api/admin/verses', verifyToken, async (req: any, res) => {
+app.post('/api/admin/verses', verifyToken, requireAdmin, async (req: any, res) => {
   const { reference, fullText, keyWords, difficulty, translation, scheduleDate } = req.body;
   try {
     // Basic admin check (in a real app, verify user role)
@@ -628,26 +636,7 @@ cron.schedule('0 8 * * *', async () => {
       console.log('Cron generated missing verse for today.');
     }
 
-    const payload = JSON.stringify({ title: 'New Daily Verse!', body: 'Your daily Versiculus puzzle is ready to play.' });
-
-    // 2. Send Push Notifications
-    const pushResult = await pool.query('SELECT id, push_subscription FROM users WHERE push_subscription IS NOT NULL');
-    const pushUsers = pushResult.rows;
-    const pushNotifications = pushUsers.map(user => {
-      const subscription = parsePushSubscription(user.push_subscription);
-      if (!subscription) {
-        return pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [user.id]);
-      }
-      return webpush.sendNotification(subscription, payload)
-        .catch(err => {
-          if (err.statusCode === 404 || err.statusCode === 410) {
-            return pool.query('UPDATE users SET push_subscription = NULL WHERE id = $1', [user.id]);
-          }
-        });
-    });
-    await Promise.all(pushNotifications);
-
-    // 3. Send Email Notifications
+    // 2. Send Email Notifications
     const emailResult = await pool.query('SELECT email FROM users WHERE email_notifications = true');
     const emailUsers = emailResult.rows;
     const emailNotifications = emailUsers.map(user => {
@@ -655,7 +644,7 @@ cron.schedule('0 8 * * *', async () => {
     });
     await Promise.all(emailNotifications);
 
-    console.log(`Daily cron finished successfully. Pushes sent: ${pushUsers.length}, Emails sent: ${emailUsers.length}`);
+    console.log(`Daily cron finished successfully. Emails sent: ${emailUsers.length}`);
   } catch (error) {
     console.error('Error in daily cron job:', error);
   }

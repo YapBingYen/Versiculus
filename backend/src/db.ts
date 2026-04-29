@@ -5,7 +5,7 @@ import dns from 'dns';
 dns.setDefaultResultOrder('ipv4first');
 dotenv.config();
 
-const isProd = process.env.NODE_ENV === 'production';
+const isProd = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
 const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/versiculus';
 
 if (isProd && !process.env.DATABASE_URL) {

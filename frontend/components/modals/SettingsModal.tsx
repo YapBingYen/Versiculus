@@ -13,10 +13,9 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose, hardMode, setHardMode, translation, setTranslation, onOpenAuth }: SettingsModalProps) {
-  const { isSupported, isSubscribed, permission, isPushLoading, pushError, subscribe, unsubscribe, isEmailSubscribed, isEmailLoading, emailError, toggleEmailSubscription } = useNotifications();
+  const { isEmailSubscribed, isEmailLoading, emailError, toggleEmailSubscription } = useNotifications();
   const { user } = useAuth();
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [showPushLoginPrompt, setShowPushLoginPrompt] = useState(false);
 
   if (!isOpen) return null;
 
@@ -61,58 +60,6 @@ export function SettingsModal({ isOpen, onClose, hardMode, setHardMode, translat
               <option value="KJV">KJV</option>
             </select>
           </div>
-
-          {/* Push Notifications Toggle */}
-          {isSupported && (
-            <div className="flex justify-between items-center border-b border-[#3A3A3C] pb-6">
-              <div className="flex-1 pr-4">
-                <h3 className="font-bold text-lg">Push Notifications</h3>
-                <p className="text-sm text-[#818384] mt-1">Get device notifications when a new verse is available to play.</p>
-                {showPushLoginPrompt && !user && (
-                  <div className="mt-3 flex items-center gap-2 text-sm text-[#C9A84C] animate-fade-in">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                    <div className="flex-1">
-                      You must log in to enable push notifications.
-                    </div>
-                    {onOpenAuth && (
-                      <button 
-                        onClick={() => { 
-                          setShowPushLoginPrompt(false);
-                          onClose(); 
-                          onOpenAuth(); 
-                        }} 
-                        className="underline font-bold hover:text-white transition-colors shrink-0 ml-2 text-right whitespace-nowrap"
-                      >
-                        Log In
-                      </button>
-                    )}
-                  </div>
-                )}
-                {pushError && (
-                  <div className="mt-3 text-sm text-[#C9A84C]">
-                    {pushError}
-                  </div>
-                )}
-              </div>
-              <button 
-                onClick={() => {
-                  if (!user) {
-                    setShowPushLoginPrompt(true);
-                    return;
-                  }
-                  if (!isSubscribed) {
-                    subscribe();
-                  } else {
-                    unsubscribe();
-                  }
-                }}
-                disabled={permission === 'denied' || isPushLoading}
-                className={`w-12 h-6 rounded-full transition-colors relative ${isSubscribed ? 'bg-[#538D4E]' : 'bg-[#565758]'} ${permission === 'denied' ? 'opacity-50 cursor-not-allowed' : ''} ${isPushLoading ? 'opacity-50 cursor-wait' : ''}`}
-              >
-                <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${isSubscribed ? 'translate-x-6' : 'translate-x-1'}`}></div>
-              </button>
-            </div>
-          )}
 
           {/* Email Notifications Toggle */}
           <div className="flex justify-between items-center border-b border-[#3A3A3C] pb-6">
