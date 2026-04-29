@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import axios from 'axios';
 import { resolve4 } from 'node:dns/promises';
 import net from 'node:net';
 
@@ -73,7 +74,51 @@ function ensureMailerReady() {
 
 ensureMailerReady();
 
+async function sendViaResendApi(to: string, title: string, body: string) {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (!resendApiKey) return null;
+
+  try {
+    const appUrl = process.env.APP_PUBLIC_URL || process.env.FRONTEND_URL || '';
+    const playUrl = appUrl ? `${appUrl.replace(/\/$/, '')}/play` : '';
+    const from = process.env.MAIL_FROM || 'onboarding@resend.dev';
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; text-align: center; background-color: #121213; color: white;">
+        <h1 style="color: #C9A84C; font-family: Georgia, serif;">${title}</h1>
+        <p style="font-size: 16px; line-height: 1.5;">${body}</p>
+        ${playUrl ? `<a href="${playUrl}" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background-color: #2C5F8A; color: white; text-decoration: none; border-radius: 4px; font-weight: bold;">Play Now</a>` : ''}
+      </div>
+    `;
+
+    await axios.post(
+      'https://api.resend.com/emails',
+      {
+        from,
+        to: [to],
+        subject: title,
+        text: body,
+        html,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
+      }
+    );
+
+    return true;
+  } catch (error) {
+    console.error('Error sending email (Resend API):', error);
+    return false;
+  }
+}
+
 export async function sendEmailNotification(to: string, title: string, body: string) {
+  const resendResult = await sendViaResendApi(to, title, body);
+  if (resendResult !== null) return resendResult;
+
   await ensureMailerReady();
   if (!mailerReady || !transporter) {
     return false;
