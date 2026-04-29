@@ -1,4 +1,6 @@
 import nodemailer from 'nodemailer';
+import { resolve4 } from 'node:dns/promises';
+import net from 'node:net';
 
 let transporter: nodemailer.Transporter | null = null;
 let mailerReady = false;
@@ -14,14 +16,30 @@ async function initTransporter() {
 
   if (hasSmtp) {
     const smtpPort = process.env.SMTP_PORT as string;
+    const smtpHost = process.env.SMTP_HOST as string;
+    let connectHost = smtpHost;
+    let tlsServername: string | undefined;
+
+    if (net.isIP(smtpHost) === 0) {
+      try {
+        const ipv4 = await resolve4(smtpHost);
+        const firstIpv4 = ipv4[0];
+        if (firstIpv4) {
+          connectHost = firstIpv4;
+          tlsServername = smtpHost;
+        }
+      } catch {}
+    }
+
     transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
+      host: connectHost,
       port: parseInt(smtpPort, 10),
       secure: smtpPort === '465',
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      ...(tlsServername ? { tls: { servername: tlsServername } } : {}),
     });
     mailerReady = true;
     return;
