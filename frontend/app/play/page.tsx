@@ -198,7 +198,7 @@ function GameCore({
   };
 
   return (
-    <main className="min-h-screen bg-[#121213] text-white flex flex-col">
+    <main className="h-[100dvh] bg-[#121213] text-white flex flex-col overflow-hidden">
       <Header 
         onOpenHelp={() => setIsHelpOpen(true)} 
         onOpenStats={() => setIsStatsOpen(true)}
@@ -209,7 +209,7 @@ function GameCore({
         onLogout={handleLogout}
       />
       
-      <div className={`flex-1 flex flex-col overflow-y-auto pb-8 transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`flex-1 min-h-0 flex flex-col overflow-hidden transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}>
         <VerseHeader verse={verse} />
         
         <GameGrid

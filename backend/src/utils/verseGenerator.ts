@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const FAMOUS_VERSES = [
-  "John 3:16", "Jeremiah 29:11", "Romans 8:28", "Philippians 4:28",
+  "John 3:16", "Jeremiah 29:11", "Romans 8:28", "Philippians 4:19",
   "Genesis 1:1", "Proverbs 3:5", "Proverbs 3:6", "Isaiah 41:10",
   "Matthew 11:28", "John 14:6", "Matthew 28:19", "Philippians 4:13",
   "Romans 12:2", "Psalms 23:1", "Psalms 46:1", "Galatians 2:20",
@@ -14,7 +14,19 @@ const FAMOUS_VERSES = [
   "1 Thessalonians 5:17", "1 Thessalonians 5:18", "2 Timothy 1:7", "2 Timothy 3:16",
   "Hebrews 11:1", "Hebrews 12:1", "Hebrews 12:2", "James 1:5",
   "James 1:22", "1 Peter 5:7", "1 John 1:9", "Revelation 3:20",
-  "Revelation 21:4", "Revelation 22:4", "Revelation 22:5"
+  "Revelation 21:4", "Revelation 22:4", "Revelation 22:5",
+  "Psalms 119:105", "Psalms 119:11", "Psalms 37:4", "Psalms 121:1",
+  "Psalms 121:2", "Psalms 139:23", "Psalms 139:24", "Isaiah 26:3",
+  "Isaiah 40:31", "Isaiah 43:2", "Lamentations 3:22", "Lamentations 3:23",
+  "Micah 6:8", "Zephaniah 3:17", "Deuteronomy 31:6", "Deuteronomy 31:8",
+  "2 Chronicles 7:14", "Numbers 6:24", "Numbers 6:25", "Numbers 6:26",
+  "John 1:1", "John 10:10", "John 13:34", "John 15:5",
+  "John 15:13", "John 16:33", "Matthew 5:14", "Matthew 5:16",
+  "Matthew 6:34", "Matthew 7:7", "Matthew 7:8", "Matthew 22:37",
+  "Matthew 22:39", "Mark 12:30", "Luke 1:37", "Luke 6:31",
+  "Acts 1:8", "Acts 16:31", "Romans 3:23", "Romans 5:8",
+  "Romans 6:23", "Romans 10:9", "Romans 15:13", "1 Corinthians 6:19",
+  "Galatians 5:22"
 ];
 
 const STOP_WORDS = new Set([

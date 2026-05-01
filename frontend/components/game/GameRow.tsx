@@ -29,7 +29,7 @@ export function GameRow({
   }
 
   return (
-    <div className={`flex gap-1.5 justify-center w-full mb-1.5`}>
+    <div className={`flex gap-1 sm:gap-1.5 justify-center w-full mb-1 sm:mb-1.5`}>
       {paddedWords.map((word, i) => (
         <GameTile
           key={i}

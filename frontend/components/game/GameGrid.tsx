@@ -53,7 +53,7 @@ export function GameGrid({
   });
 
   return (
-    <div className="w-full max-w-[420px] mx-auto p-4 flex flex-col items-center justify-center">
+    <div className="w-full max-w-[420px] mx-auto px-4 py-2 sm:py-3 flex flex-col items-center justify-center">
       {rows.map((row, i) => (
         <GameRow
           key={i}
