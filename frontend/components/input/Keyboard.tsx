@@ -55,7 +55,7 @@ export function Keyboard({
   };
 
   return (
-    <div className="w-full max-w-[500px] mx-auto mt-2 px-2 flex flex-col gap-1.5 select-none animate-fade-in pb-2">
+    <div className="w-full max-w-[500px] mx-auto mt-1 px-2 flex flex-col gap-1 select-none animate-fade-in pb-1">
       {ROWS.map((row, i) => (
         <div key={i} className="flex justify-center gap-1 sm:gap-1.5">
           {row.map(key => (
@@ -64,7 +64,7 @@ export function Keyboard({
               onClick={() => handleKeyClick(key)}
               disabled={disabled}
               className={`
-                flex items-center justify-center rounded font-inter font-bold text-sm sm:text-base h-10 sm:h-12
+                flex items-center justify-center rounded font-inter font-bold text-sm sm:text-base h-[clamp(34px,5.5vh,48px)]
                 transition-colors ${key === 'ENTER' || key === 'BACKSPACE' ? 'flex-[1.5]' : 'flex-1'}
                 ${getKeyStyle(key)}
                 ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer active:scale-95'}

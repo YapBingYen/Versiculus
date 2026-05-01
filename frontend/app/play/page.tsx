@@ -11,6 +11,7 @@ import { StatsModal } from '../../components/modals/StatsModal';
 import { AuthModal } from '../../components/modals/AuthModal';
 import { LeaderboardModal } from '../../components/modals/LeaderboardModal';
 import { SettingsModal } from '../../components/modals/SettingsModal';
+import { VerseModal } from '../../components/modals/VerseModal';
 import { Toast } from '../../components/ui/Toast';
 import { useGame } from '../../hooks/useGame';
 import { useAuth, User } from '../../hooks/useAuth';
@@ -158,6 +159,7 @@ function GameCore({
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isVerseOpen, setIsVerseOpen] = useState(false);
 
   const { user, login, logout } = useAuth();
 
@@ -254,18 +256,23 @@ function GameCore({
             />
           </div>
         ) : (
-          <div className="w-full max-w-[420px] mx-auto mt-4 px-4 text-center animate-fade-in flex flex-col">
-            <h3 className="text-2xl font-playfair text-[#C9A84C] mb-4">
-              {gameState.status === 'won' ? 'Magnificent!' : 'Keep reading. Try again tomorrow!'}
-            </h3>
-            <p className="text-white font-lora mb-4 text-base sm:text-lg max-h-[120px] overflow-y-auto px-1">
-              {verse.fullText}
-            </p>
+          <div className="w-full max-w-[420px] mx-auto mt-2 px-4 text-center animate-fade-in flex flex-col">
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <h3 className="text-xl sm:text-2xl font-playfair text-[#C9A84C]">
+                {gameState.status === 'won' ? 'Magnificent!' : 'Try again tomorrow'}
+              </h3>
+              <button
+                onClick={() => setIsVerseOpen(true)}
+                className="text-sm font-inter text-[#4A90C4] hover:underline"
+              >
+                Verse
+              </button>
+            </div>
             {mode === 'daily' ? (
               <>
                 <button 
                   onClick={handleShare}
-                  className="w-full py-3 px-4 mb-3 bg-[#538D4E] hover:bg-[#467741] transition-colors text-white rounded font-inter font-bold text-lg shadow-lg flex items-center justify-center gap-2"
+                  className="w-full py-2 px-4 mb-2 bg-[#538D4E] hover:bg-[#467741] transition-colors text-white rounded font-inter font-bold text-base sm:text-lg shadow flex items-center justify-center gap-2"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                   Share Result
@@ -279,13 +286,13 @@ function GameCore({
                     }
                     onPlayPractice();
                   }}
-                  className="w-full py-3 px-4 mb-3 bg-[#2C5F8A] hover:bg-[#254F72] transition-colors text-white rounded font-inter font-bold text-lg shadow-lg"
+                  className="w-full py-2 px-4 mb-2 bg-[#2C5F8A] hover:bg-[#254F72] transition-colors text-white rounded font-inter font-bold text-base sm:text-lg shadow"
                 >
                   Play Another Verse
                 </button>
                 <button 
                   onClick={resetGame}
-                  className="w-full py-3 px-4 bg-[#3A3A3C] hover:bg-[#565758] transition-colors text-white rounded font-inter font-bold text-lg flex items-center justify-center gap-2"
+                  className="w-full py-2 px-4 bg-[#3A3A3C] hover:bg-[#565758] transition-colors text-white rounded font-inter font-bold text-base sm:text-lg flex items-center justify-center gap-2"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
                   Reset for Testing
@@ -302,13 +309,13 @@ function GameCore({
                     }
                     onNextPractice();
                   }}
-                  className="w-full py-3 px-4 mb-3 bg-[#2C5F8A] hover:bg-[#254F72] transition-colors text-white rounded font-inter font-bold text-lg shadow-lg"
+                  className="w-full py-2 px-4 mb-2 bg-[#2C5F8A] hover:bg-[#254F72] transition-colors text-white rounded font-inter font-bold text-base sm:text-lg shadow"
                 >
                   Next Verse
                 </button>
                 <button 
                   onClick={onBackToDaily}
-                  className="w-full py-3 px-4 bg-[#3A3A3C] hover:bg-[#565758] transition-colors text-white rounded font-inter font-bold text-lg"
+                  className="w-full py-2 px-4 bg-[#3A3A3C] hover:bg-[#565758] transition-colors text-white rounded font-inter font-bold text-base sm:text-lg"
                 >
                   Back to Daily
                 </button>
@@ -319,6 +326,7 @@ function GameCore({
       </div>
 
       <Toast message={toastMessage} />
+      <VerseModal isOpen={isVerseOpen} onClose={() => setIsVerseOpen(false)} verse={verse} />
       <HowToPlayModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       <StatsModal isOpen={isStatsOpen} onClose={() => setIsStatsOpen(false)} />
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLogin={handleLogin} />

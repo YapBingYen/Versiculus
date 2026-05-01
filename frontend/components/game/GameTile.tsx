@@ -59,7 +59,7 @@ export function GameTile({ word, state, animationDelay = 0, isActive = false }: 
     <div
       className={`
         relative flex items-center justify-center 
-        flex-1 min-w-[44px] sm:min-w-[52px] h-[44px] sm:h-[52px] md:h-[58px] px-1 sm:px-2
+        flex-1 min-w-[clamp(40px,6.5vh,52px)] h-[clamp(40px,6.5vh,58px)] px-1 sm:px-2
         border-2 rounded font-inter font-bold text-[11px] sm:text-sm md:text-base
         transition-all duration-100 uppercase select-none overflow-hidden
         ${getColors()}

@@ -65,7 +65,7 @@ export function WordInput({
         <span className="text-[#818384] font-inter text-sm whitespace-nowrap">
           Word {activeBlankIndex + 1} of {blankCount}:
         </span>
-        <div className="flex-1 bg-[#1A1A1B] border border-[#565758] rounded px-3 py-2 text-white font-inter text-base sm:text-lg h-[44px] flex items-center uppercase tracking-wider relative overflow-hidden">
+        <div className="flex-1 bg-[#1A1A1B] border border-[#565758] rounded px-3 py-2 text-white font-inter text-base sm:text-lg h-[clamp(38px,5.5vh,44px)] flex items-center uppercase tracking-wider relative overflow-hidden">
           {currentWord}
           <span className="animate-pulse ml-[2px] w-[2px] h-5 bg-[#4A90C4]"></span>
         </div>
@@ -75,13 +75,13 @@ export function WordInput({
         <button
           onClick={onPrevBlank}
           disabled={activeBlankIndex === 0}
-          className="flex-1 py-1.5 px-2 bg-[#3A3A3C] hover:bg-[#565758] text-white rounded font-inter font-semibold text-sm disabled:opacity-50 transition-colors"
+          className="flex-1 py-1 px-2 bg-[#3A3A3C] hover:bg-[#565758] text-white rounded font-inter font-semibold text-sm disabled:opacity-50 transition-colors"
         >
           Prev Blank
         </button>
         <button
           onClick={onRequestHint}
-          className="flex-[0.5] py-1.5 px-2 bg-[#C9A84C] hover:bg-[#D4B55E] text-black rounded font-inter font-bold text-sm transition-colors flex items-center justify-center gap-1"
+          className="flex-[0.5] py-1 px-2 bg-[#C9A84C] hover:bg-[#D4B55E] text-black rounded font-inter font-bold text-sm transition-colors flex items-center justify-center gap-1"
           title="Reveal first letter (uses 1 hint)"
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
@@ -90,7 +90,7 @@ export function WordInput({
         <button
           onClick={onNextBlank}
           disabled={activeBlankIndex === blankCount - 1}
-          className="flex-1 py-1.5 px-2 bg-[#3A3A3C] hover:bg-[#565758] text-white rounded font-inter font-semibold text-sm disabled:opacity-50 transition-colors"
+          className="flex-1 py-1 px-2 bg-[#3A3A3C] hover:bg-[#565758] text-white rounded font-inter font-semibold text-sm disabled:opacity-50 transition-colors"
         >
           Next Blank
         </button>
