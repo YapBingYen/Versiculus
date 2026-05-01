@@ -254,11 +254,11 @@ function GameCore({
             />
           </div>
         ) : (
-          <div className="w-full max-w-[420px] mx-auto mt-8 px-4 text-center animate-fade-in">
+          <div className="w-full max-w-[420px] mx-auto mt-4 px-4 text-center animate-fade-in flex flex-col">
             <h3 className="text-2xl font-playfair text-[#C9A84C] mb-4">
               {gameState.status === 'won' ? 'Magnificent!' : 'Keep reading. Try again tomorrow!'}
             </h3>
-            <p className="text-white font-lora mb-6 text-lg">
+            <p className="text-white font-lora mb-4 text-base sm:text-lg max-h-[120px] overflow-y-auto px-1">
               {verse.fullText}
             </p>
             {mode === 'daily' ? (
