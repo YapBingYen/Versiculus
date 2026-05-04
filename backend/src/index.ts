@@ -620,31 +620,57 @@ app.post('/api/admin/verses', verifyToken, requireAdmin, async (req: any, res) =
 // ---------------------------------------------------------
 // CRON JOBS
 // ---------------------------------------------------------
-// Run every day at 8:00 AM server time
-cron.schedule('0 8 * * *', async () => {
-  console.log('Running automated daily notification cron job...');
+const runDailyRoutine = async () => {
+  const today = new Date().toISOString().split('T')[0];
+
+  let verseResult = await pool.query(
+    'SELECT v.id FROM daily_schedule ds JOIN verses v ON ds.verse_id = v.id WHERE ds.play_date = $1',
+    [today]
+  );
+  if (verseResult.rows.length === 0) {
+    const randomVerseData = await fetchRandomVerse('NIV');
+    const keyWords = selectKeyWords(randomVerseData.text);
+    const insertRes = await pool.query(
+      'INSERT INTO verses (reference, full_text, key_words, difficulty, translation) VALUES ($1, $2, $3, 1, $4) RETURNING id',
+      [randomVerseData.reference, randomVerseData.text, keyWords, 'NIV']
+    );
+    await pool.query('INSERT INTO daily_schedule (play_date, verse_id) VALUES ($1, $2)', [today, insertRes.rows[0].id]);
+  }
+
+  const emailResult = await pool.query('SELECT email FROM users WHERE email_notifications = true');
+  const emailUsers = emailResult.rows as Array<{ email: string }>;
+  const emailNotifications = emailUsers.map((user) =>
+    sendEmailNotification(
+      user.email,
+      'New Daily Verse!',
+      'Your daily Versiculus puzzle is ready to play. Log in now to keep your streak alive!'
+    )
+  );
+  await Promise.all(emailNotifications);
+
+  return { emailsAttempted: emailUsers.length };
+};
+
+app.post('/api/cron/daily', async (req, res) => {
+  const secret = process.env.CRON_SECRET || '';
+  if (secret) {
+    const provided = String(req.header('x-cron-secret') || '');
+    if (provided !== secret) return res.status(401).json({ error: 'Unauthorized' });
+  }
+
   try {
-    const today = new Date().toISOString().split('T')[0];
-    
-    // 1. Ensure today's verse exists (generate it if not)
-    let verseResult = await pool.query('SELECT v.id FROM daily_schedule ds JOIN verses v ON ds.verse_id = v.id WHERE ds.play_date = $1', [today]);
-    if (verseResult.rows.length === 0) {
-      const randomVerseData = await fetchRandomVerse('NIV');
-      const keyWords = selectKeyWords(randomVerseData.text);
-      const insertRes = await pool.query('INSERT INTO verses (reference, full_text, key_words, difficulty, translation) VALUES ($1, $2, $3, 1, $4) RETURNING id', [randomVerseData.reference, randomVerseData.text, keyWords, 'NIV']);
-      await pool.query('INSERT INTO daily_schedule (play_date, verse_id) VALUES ($1, $2)', [today, insertRes.rows[0].id]);
-      console.log('Cron generated missing verse for today.');
-    }
+    const result = await runDailyRoutine();
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    console.error('Error running daily routine:', error);
+    res.status(500).json({ ok: false });
+  }
+});
 
-    // 2. Send Email Notifications
-    const emailResult = await pool.query('SELECT email FROM users WHERE email_notifications = true');
-    const emailUsers = emailResult.rows;
-    const emailNotifications = emailUsers.map(user => {
-      return sendEmailNotification(user.email, 'New Daily Verse!', 'Your daily Versiculus puzzle is ready to play. Log in now to keep your streak alive!');
-    });
-    await Promise.all(emailNotifications);
-
-    console.log(`Daily cron finished successfully. Emails sent: ${emailUsers.length}`);
+// Run every day at 8:00 AM server time (only works while the process is running)
+cron.schedule('0 8 * * *', async () => {
+  try {
+    await runDailyRoutine();
   } catch (error) {
     console.error('Error in daily cron job:', error);
   }
